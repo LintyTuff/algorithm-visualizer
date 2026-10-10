@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Algorithm Visualizer | CEi KMITL</title>
+  <style>
+    /* Reset & Base Dark Theme */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0f1117;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden; /* App view locked to viewport */
+    }
+
+    /* Header */
+    header {
+      background-color: #1a1d24;
+      padding: 12px 24px;
+      border-bottom: 1px solid #2d3139;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    header p {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+
+    /* Main Split Layout */
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden; /* Prevents whole-page scrolling */
+    }
+
+    /* Independent Scrollable Columns */
+    .column {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .column-left {
+      border-right: 1px solid #2d3139;
+    }
+
+    /* Panel Card Structure */
+    .panel {
+      background-color: #161920;
+      border: 1px solid #2d3139;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Canvas / Visualization Area Stubs */
+    .canvas-container {
+      background-color: #0b0d11;
+      border: 1px solid #262a33;
+      border-radius: 6px;
+      min-height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+    }
+
+    /* Footer */
+    footer {
+      background-color: #1a1d24;
+      border-top: 1px solid #2d3139;
+      padding: 8px 24px;
+      font-size: 0.75rem;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    footer .school-tag {
+      font-weight: 600;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <h1 id="algo-title">Algorithm Visualizer</h1>
+    <p id="algo-desc">An interactive step-by-step visual exploration of the underlying mathematics.</p>
+  </header>
+
+  <!-- Two-Column Body -->
+  <main>
+    <!-- Left Column: Data Input & Controls -->
+    <section class="column column-left">
+      <!-- Top-Left: Data Canvas / Input -->
+      <div class="panel" id="panel-data-canvas">
+        <h2 class="panel-title">Data Canvas</h2>
+        <div class="canvas-container" id="data-canvas-wrapper">
+          <canvas id="dataCanvas" width="500" height="350"></canvas>
+        </div>
+        <!-- Spray, erase, random dataset controls will go here -->
+      </div>
+
+      <!-- Bottom-Left: Hyperparameters & Controls -->
+      <div class="panel" id="panel-controls">
+        <h2 class="panel-title">Hyperparameters &amp; Controls</h2>
+        <div id="controls-container">
+          <!-- Step, Converge, sliders will go here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Model State & Loss -->
+    <section class="column column-right">
+      <!-- Top-Right: Model State / Internal Structure -->
+      <div class="panel" id="panel-model-state">
+        <h2 class="panel-title">Model State &amp; Mathematics</h2>
+        <div class="canvas-container" id="model-state-container">
+          <!-- Matrices, trees, weights, or math formulas go here -->
+        </div>
+      </div>
+
+      <!-- Bottom-Right: Loss Graph -->
+      <div class="panel" id="panel-loss-graph">
+        <h2 class="panel-title">Loss Convergence</h2>
+        <div class="canvas-container" id="loss-canvas-wrapper">
+          <canvas id="lossCanvas" width="500" height="240"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Compact Footer -->
+  <footer>
+    <span>Members: [Your Names Here]</span>
+    <span class="school-tag">CEi KMITL</span>
+  </footer>
+
+  <!-- Single-File JavaScript Logic -->
+  <script>
+    // State management and algorithm logic will live here
+    document.addEventListener("DOMContentLoaded", () => {
+      console.log("Visualizer initialized.");
+    });
+  </script>
+</body>
+</html>
