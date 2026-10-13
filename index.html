@@ -111,14 +111,33 @@
       font-weight: 600;
       color: #94a3b8;
     }
+        .tool-btn, .action-btn {
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid #334155;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .tool-btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+    }
+    .tool-btn.danger {
+      border-color: #ef4444; color: #f87171;
+    }
+    .action-btn.primary {
+      background: #0284c7; border-color: #38bdf8; font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
   <!-- Header -->
   <header>
-    <h1 id="algo-title">Algorithm Visualizer</h1>
-    <p id="algo-desc">An interactive step-by-step visual exploration of the underlying mathematics.</p>
+    <h1 id="algo-title">DBScan Algorithm Visualizer</h1>
+    <p id="algo-desc">Density-Based Spatial Clustering of Applications with Noise.</p>
   </header>
 
   <!-- Two-Column Body -->
@@ -131,14 +150,36 @@
         <div class="canvas-container" id="data-canvas-wrapper">
           <canvas id="dataCanvas" width="500" height="350"></canvas>
         </div>
-        <!-- Spray, erase, random dataset controls will go here -->
+          <!-- Top-Left: Add this right below the </canvas> tag inside #data-canvas-wrapper -->
+          <div class="canvas-toolbar" style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+            <button id="btn-add" class="tool-btn active">Point</button>
+            <button id="btn-spray" class="tool-btn">Spray</button>
+            <button id="btn-erase" class="tool-btn">Erase</button>
+            <input type="range" id="nozzleSize" min="10" max="60" value="25" title="Nozzle Size" />
+            <button id="btn-random" class="tool-btn" style="margin-left: auto;">Random Data</button>
+            <button id="btn-clear" class="tool-btn danger">Clear Data</button>
+          </div>
       </div>
 
       <!-- Bottom-Left: Hyperparameters & Controls -->
       <div class="panel" id="panel-controls">
         <h2 class="panel-title">Hyperparameters &amp; Controls</h2>
         <div id="controls-container">
-          <!-- Step, Converge, sliders will go here -->
+          <!-- Bottom-Left: Replace the contents of <div id="controls-container"> with this: -->
+          <div id="controls-container" style="display: flex; flex-direction: column; gap: 12px;">
+            <div>
+              <label style="color: #38bdf8;">Epsilon (Radius): <span id="valEps">35</span>px</label>
+              <input type="range" id="paramEps" min="15" max="100" value="35" style="width: 100%;" />
+            </div>
+            <div>
+              <label style="color: #38bdf8;">MinPts (Density): <span id="valMinPts">4</span></label>
+              <input type="range" id="paramMinPts" min="2" max="15" value="4" style="width: 100%;" />
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button id="btn-step" class="action-btn" style="flex: 1;">Step</button>
+              <button id="btn-play" class="action-btn primary" style="flex: 2;">Play to Convergence</button>
+            </div>
+        </div>
         </div>
       </div>
     </section>
@@ -165,16 +206,379 @@
 
   <!-- Compact Footer -->
   <footer>
-    <span>Members: [Your Names Here]</span>
+    <span>Members: Brandon Darryl Lynn</span>
     <span class="school-tag">CEi KMITL</span>
   </footer>
 
   <!-- Single-File JavaScript Logic -->
-  <script>
-    // State management and algorithm logic will live here
-    document.addEventListener("DOMContentLoaded", () => {
-      console.log("Visualizer initialized.");
+    <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const canvas = document.getElementById("dataCanvas");
+    const ctx = canvas.getContext("2d");
+    
+    // State
+    let points = [];
+    // --- DBSCAN State ---
+    let eps = parseInt(document.getElementById("paramEps").value);
+    let minPts = parseInt(document.getElementById("paramMinPts").value);
+    
+    let dbscanState = 'IDLE'; // 'IDLE' (searching for new core) or 'EXPANDING' (processing queue)
+    let currentClusterId = 0;
+    let seedQueue = [];
+    let currentPoint = null; 
+    let activeInterval = null;
+    // --- Chart State ---
+    let lossHistory = []; 
+    const lossCanvas = document.getElementById("lossCanvas");
+    const lossCtx = lossCanvas.getContext("2d");
+
+    // Hyperparameter Listeners
+    document.getElementById("paramEps").addEventListener("input", (e) => {
+      eps = parseInt(e.target.value);
+      document.getElementById("valEps").textContent = eps;
+      resetModel();
     });
+    
+    document.getElementById("paramMinPts").addEventListener("input", (e) => {
+      minPts = parseInt(e.target.value);
+      document.getElementById("valMinPts").textContent = minPts;
+      resetModel();
+    });
+
+    // Helper: Euclidean Distance
+    function getNeighbors(point) {
+      return points.filter(p => Math.hypot(p.x - point.x, p.y - point.y) <= eps);
+    }
+
+    // Reset Model (Keeps points, clears clusters)
+    function resetModel() {
+      points.forEach(p => {
+        p.cluster = null;
+        p.type = "unvisited";
+      });
+      dbscanState = 'IDLE';
+      currentClusterId = 0;
+      seedQueue = [];
+      currentPoint = null;
+      clearInterval(activeInterval);
+      drawCanvas();
+      updateModelStatePanel("Model reset. Ready to start.");
+      
+      // NEW: Reset the chart
+      lossHistory = [points.length]; 
+      drawLossGraph();
+    }
+    let currentTool = "add"; // 'add', 'spray', 'erase'
+    let isDrawing = false;
+    
+    // UI Elements
+    const nozzleInput = document.getElementById("nozzleSize");
+    const tools = {
+      add: document.getElementById("btn-add"),
+      spray: document.getElementById("btn-spray"),
+      erase: document.getElementById("btn-erase")
+    };
+
+    // Tool Selection
+    Object.keys(tools).forEach(key => {
+      tools[key].addEventListener("click", () => {
+        Object.values(tools).forEach(btn => btn.classList.remove("active"));
+        tools[key].classList.add("active");
+        currentTool = key;
+      });
+    });
+
+    // Clear Canvas
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      points = [];
+      resetModel();
+    });
+    // Generate Random Data (Clusters + Noise)
+    document.getElementById("btn-random").addEventListener("click", () => {
+      points = []; // Clear existing data first
+      
+      const numClusters = 3;
+      const pointsPerCluster = 40;
+      const noisePoints = 25;
+      
+      // 1. Generate 3 distinct dense clusters
+      for (let i = 0; i < numClusters; i++) {
+        // Pick a random center point for this cluster
+        const centerX = Math.random() * (canvas.width - 100) + 50;
+        const centerY = Math.random() * (canvas.height - 100) + 50;
+        
+        // Scatter points tightly around that center
+        for (let j = 0; j < pointsPerCluster; j++) {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * 35; // Keep them within a 35px radius
+          points.push({
+            x: centerX + Math.cos(angle) * radius,
+            y: centerY + Math.sin(angle) * radius,
+            cluster: null, type: "unvisited"
+          });
+        }
+      }
+      
+      // 2. Sprinkle random noise across the whole canvas
+      for (let i = 0; i < noisePoints; i++) {
+        points.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          cluster: null, type: "unvisited"
+        });
+      }
+      
+      // resetModel() resets the chart, clears DBSCAN state, and redraws the canvas
+      resetModel(); 
+    });
+
+    // Mouse Coordinates helper
+    const getMousePos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+
+    // Canvas Actions
+    const handleAction = (x, y) => {
+      const nozzle = parseInt(nozzleInput.value);
+      
+      if (currentTool === "add") {
+        points.push({ x, y, cluster: null, type: "unvisited" });
+        isDrawing = false; // Only one point per click
+      } 
+      else if (currentTool === "spray") {
+        for(let i=0; i<3; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * nozzle;
+          points.push({ 
+            x: x + Math.cos(angle) * radius, 
+            y: y + Math.sin(angle) * radius, 
+            cluster: null, type: "unvisited" 
+          });
+        }
+      } 
+      else if (currentTool === "erase") {
+        points = points.filter(p => Math.hypot(p.x - x, p.y - y) > nozzle);
+      }
+      drawCanvas();
+      
+      // NEW: Update chart base point count while drawing
+      if (dbscanState === 'IDLE' && currentClusterId === 0) {
+        lossHistory = [points.length];
+        drawLossGraph();
+      }
+    };
+
+    // Mouse Listeners
+    canvas.addEventListener("mousedown", (e) => {
+      isDrawing = true;
+      const { x, y } = getMousePos(e);
+      handleAction(x, y);
+    });
+    
+    canvas.addEventListener("mousemove", (e) => {
+      if (!isDrawing) return;
+      const { x, y } = getMousePos(e);
+      handleAction(x, y);
+    });
+    
+    canvas.addEventListener("mouseup", () => isDrawing = false);
+    canvas.addEventListener("mouseleave", () => isDrawing = false);
+
+    function stepDBSCAN() {
+    if (points.length === 0) return;
+
+    if (dbscanState === 'IDLE') {
+      // Find the next unvisited point
+      currentPoint = points.find(p => p.type === "unvisited");
+      
+      if (!currentPoint) {
+        updateModelStatePanel("🎉 Convergence reached! All points processed.");
+        clearInterval(activeInterval);
+        drawCanvas();
+        return;
+      }
+
+      currentPoint.type = "visited";
+      let neighbors = getNeighbors(currentPoint);
+
+      if (neighbors.length < minPts) {
+        // Not enough neighbors -> mark as noise (might become border later)
+        currentPoint.cluster = -1; 
+        currentPoint.type = "noise";
+        updateModelStatePanel(`Checking point...<br>Neighbors: ${neighbors.length} < MinPts (${minPts}).<br>Result: <span style="color:#ef4444">NOISE</span>`);
+      } else {
+        // Core point found -> start new cluster
+        currentPoint.type = "core";
+        currentPoint.cluster = currentClusterId;
+        
+        // Add unvisited neighbors to queue
+        seedQueue = neighbors.filter(n => n !== currentPoint);
+        dbscanState = 'EXPANDING';
+        updateModelStatePanel(`Checking point...<br>Neighbors: ${neighbors.length} >= MinPts (${minPts}).<br>Result: <span style="color:#22c55e">CORE</span> (Cluster ${currentClusterId})<br>Added ${seedQueue.length} points to expansion queue.`);
+      }
+    } 
+    else if (dbscanState === 'EXPANDING') {
+      if (seedQueue.length === 0) {
+        currentClusterId++;
+        dbscanState = 'IDLE';
+        currentPoint = null;
+        stepDBSCAN(); // Move immediately to next unvisited point
+        return;
+      }
+
+      // Pop point from queue
+      currentPoint = seedQueue.shift();
+
+      if (currentPoint.type === "noise") {
+        // Noise point reached by a core point becomes a border point
+        currentPoint.cluster = currentClusterId;
+        currentPoint.type = "border";
+        updateModelStatePanel(`Absorbed Noise point into Cluster ${currentClusterId} as BORDER.<br>Remaining in queue: ${seedQueue.length}`);
+      } 
+      else if (currentPoint.type === "unvisited") {
+        currentPoint.type = "visited";
+        currentPoint.cluster = currentClusterId;
+        let neighbors = getNeighbors(currentPoint);
+
+        if (neighbors.length >= minPts) {
+          currentPoint.type = "core";
+          // Add newly discovered neighbors to the queue
+          let newNeighbors = neighbors.filter(n => n.type === "unvisited" && !seedQueue.includes(n));
+          seedQueue.push(...newNeighbors);
+          updateModelStatePanel(`Expanded cluster. Found new CORE point.<br>Added ${newNeighbors.length} new neighbors.<br>Remaining in queue: ${seedQueue.length}`);
+        } else {
+          currentPoint.type = "border";
+          updateModelStatePanel(`Expanded cluster. Found BORDER point.<br>Remaining in queue: ${seedQueue.length}`);
+        }
+      }
+    }
+    let unvisitedCount = points.filter(p => p.type === "unvisited").length;
+      lossHistory.push(unvisitedCount);
+      drawLossGraph();
+    drawCanvas();
+  }
+
+  // Right Column UI Updater
+  function updateModelStatePanel(htmlContent) {
+    document.getElementById("model-state-container").innerHTML = `<div style="padding: 16px; width: 100%; color: #e2e8f0; font-family: monospace;">${htmlContent}</div>`;
+  }
+
+  // Button Listeners
+  document.getElementById("btn-step").addEventListener("click", () => {
+    clearInterval(activeInterval);
+    stepDBSCAN();
+  });
+  
+  document.getElementById("btn-play").addEventListener("click", () => {
+    clearInterval(activeInterval);
+    activeInterval = setInterval(stepDBSCAN, 150); // Run step every 150ms
+  });
+    // Render Loop
+// --- Enhanced Render Loop ---
+    const colors = ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
+    
+    function drawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw Epsilon radius around active point
+      if (currentPoint) {
+        ctx.beginPath();
+        ctx.arc(currentPoint.x, currentPoint.y, eps, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(56, 189, 248, 0.15)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.5)";
+        ctx.stroke();
+      }
+
+      // Draw all points
+      points.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        
+        if (p.cluster === null) {
+          ctx.fillStyle = "#64748b"; // Unvisited
+        } else if (p.cluster === -1) {
+          ctx.fillStyle = "#ef4444"; // Noise (Red)
+        } else {
+          ctx.fillStyle = colors[p.cluster % colors.length]; // Cluster Color
+        }
+        
+        ctx.fill();
+        
+        // Highlight core points with a white ring
+        if (p.type === "core") {
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = "#ffffff";
+          ctx.stroke();
+        }
+        
+        // Highlight currently active point with yellow
+        if (currentPoint === p) {
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#fbbf24";
+          ctx.stroke();
+        }
+      });
+    }
+    // ==========================================
+    // 4. LOSS / CONVERGENCE GRAPH
+    // ==========================================
+    function drawLossGraph() {
+      lossCtx.clearRect(0, 0, lossCanvas.width, lossCanvas.height);
+      
+      if (lossHistory.length === 0) return;
+
+      const pad = 30; // Padding for axes
+      const w = lossCanvas.width - pad * 2;
+      const h = lossCanvas.height - pad * 2;
+      
+      const maxPoints = Math.max(10, points.length); // Max Y value
+      const maxSteps = Math.max(10, lossHistory.length - 1); // Max X value
+
+      // Draw Axes
+      lossCtx.beginPath();
+      lossCtx.strokeStyle = "#334155";
+      lossCtx.lineWidth = 2;
+      lossCtx.moveTo(pad, pad);
+      lossCtx.lineTo(pad, pad + h);
+      lossCtx.lineTo(pad + w, pad + h);
+      lossCtx.stroke();
+
+      // Draw Line Chart
+      lossCtx.beginPath();
+      lossCtx.strokeStyle = "#38bdf8"; // Cyan line
+      lossCtx.lineWidth = 3;
+      lossCtx.lineJoin = "round";
+
+      lossHistory.forEach((val, step) => {
+        const x = pad + (step / maxSteps) * w;
+        const y = pad + h - (val / maxPoints) * h;
+        
+        if (step === 0) lossCtx.moveTo(x, y);
+        else lossCtx.lineTo(x, y);
+      });
+      
+      lossCtx.stroke();
+      
+      // Fill area under the curve
+      lossCtx.lineTo(pad + w, pad + h);
+      lossCtx.lineTo(pad, pad + h);
+      lossCtx.fillStyle = "rgba(56, 189, 248, 0.1)";
+      lossCtx.fill();
+
+      // Draw Labels
+      lossCtx.fillStyle = "#94a3b8";
+      lossCtx.font = "12px sans-serif";
+      lossCtx.fillText("Unprocessed", pad + 5, pad - 5);
+      lossCtx.fillText("Steps", pad + w - 30, pad + h + 20);
+      lossCtx.fillText("0", pad - 15, pad + h + 5);
+      lossCtx.fillText(maxPoints.toString(), pad - 25, pad + 10);
+    }
+    
+    // Call it once at startup
+    drawLossGraph();
+  });
   </script>
 </body>
 </html>
