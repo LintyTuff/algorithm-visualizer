@@ -267,6 +267,35 @@
     border-radius: 5px;
   }
   .hud-btn:hover { background: var(--border-subtle); color: var(--accent-rose); }
+  .hud-btn.active-follow {
+    background: var(--accent-emerald);
+    color: #090407;
+  }
+  .hud-btn.active-tooltip-toggle {
+    background: var(--accent-amber);
+    color: #090407;
+  }
+
+  /* Canvas Tooltip Overlay */
+  .canvas-tooltip {
+    position: absolute;
+    display: none;
+    background: rgba(23, 14, 19, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--accent-amber);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-main);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+    z-index: 10;
+    transform: translate(14px, -50%);
+  }
+  .canvas-tooltip.visible { display: block; }
+  .canvas-tooltip .tt-title { color: var(--accent-amber); font-weight: 600; margin-bottom: 2px; }
+  .canvas-tooltip .tt-sub { color: var(--text-muted); font-size: 0.7rem; }
 
   /* Timeline Scrubber Container */
   .timeline-bar-wrap {
@@ -565,7 +594,7 @@
     cursor: pointer;
     font-weight: 600;
   }
-  .cluster-dropdown-toggle:hover { color: var(--text-main); background: #2b1824; }
+  .cluster-dropdown-toggle:hover { color: var(--accent-amber); background: #2b1824; }
   .cluster-list {
     display: none;
     flex-direction: column;
@@ -719,9 +748,16 @@
         <div class="module-content">
           <div class="canvas-stage">
             <canvas id="dataCanvas"></canvas>
+            <!-- Canvas Tooltip Popup -->
+            <div class="canvas-tooltip" id="canvasTooltip">
+              <div class="tt-title" id="ttTitle">Core (Cluster #1)</div>
+              <div class="tt-sub" id="ttCoords">x: 2.34, y: 1.85</div>
+            </div>
             <div class="canvas-hud">
               <div class="hud-pill" id="cursorCoord">x: 0.00, y: 0.00</div>
               <div class="hud-pill">
+                <button class="hud-btn" id="btnShowTooltipToggle" title="Toggle Permanent Step/Point Tooltip">Pin Tooltip: OFF</button>
+                <button class="hud-btn" id="btnFollow" title="Toggle Follow Camera Mode">Follow: OFF</button>
                 <button class="hud-btn" id="btnZoomIn" title="Zoom In">+</button>
                 <button class="hud-btn" id="btnZoomOut" title="Zoom Out">−</button>
                 <button class="hud-btn" id="btnResetView" title="Reset to (0,0) Origin">0,0</button>
@@ -740,8 +776,12 @@
               <span>🎞 Convergence Timeline Scrubber</span>
               <span id="timelineStepLabel">Step 0 / 0</span>
             </div>
-            <div style="display:flex; align-items:center; gap:12px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="studio-btn" id="btnTimelineRew5" style="padding:4px 8px; font-size:0.7rem;" title="Rewind 5 points">◄◄ 5 Pts</button>
+              <button class="studio-btn" id="btnTimelineRew1" style="padding:4px 8px; font-size:0.7rem;" title="Rewind 1 point">◄ Step</button>
               <button class="studio-btn" id="btnTimelinePlay" style="padding:4px 10px; font-size:0.75rem;">▶ Play</button>
+              <button class="studio-btn" id="btnTimelineFwd1" style="padding:4px 8px; font-size:0.7rem;" title="Forward 1 point">Step ►</button>
+              <button class="studio-btn" id="btnTimelineFwd5" style="padding:4px 8px; font-size:0.7rem;" title="Forward 5 points">5 Pts ►►</button>
               <input type="range" id="timelineSlider" min="0" max="0" value="0" style="flex:1;" />
               <button class="studio-btn" id="btnTimelineExit" style="padding:4px 10px; font-size:0.75rem;" title="Exit scrubber mode">✕ Exit</button>
             </div>
@@ -749,7 +789,8 @@
 
           <div class="toolbar-grid">
             <div class="segmented-bar" id="toolGroup">
-              <button class="seg-btn active" data-tool="point">● Point</button>
+              <button class="seg-btn active" data-tool="select">🖱 Select</button>
+              <button class="seg-btn" data-tool="point">● Point</button>
               <button class="seg-btn" data-tool="spray">✦ Spray</button>
               <button class="seg-btn" data-tool="erase">✕ Erase</button>
               <button class="seg-btn" data-tool="pan">✥ Pan</button>
@@ -909,29 +950,40 @@
           <div class="cluster-dropdown-wrap" id="clusterDropdown">
             <button class="cluster-dropdown-toggle" id="clusterToggleBtn">
               <span>▾ Discovered Density Clusters (<span id="clusterCountBadge">0</span>)</span>
-              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight</span>
+              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight all</span>
             </button>
             <div class="cluster-list" id="clusterListContainer">
               <span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No clusters discovered yet.</span>
             </div>
           </div>
 
-          <!-- 2. Noise Outliers Drawer -->
+          <!-- 2. Border Points Drawer -->
+          <div class="cluster-dropdown-wrap" id="borderDropdown">
+            <button class="cluster-dropdown-toggle" id="borderToggleBtn">
+              <span>▾ Border Points (<span id="borderCountBadge">0</span>)</span>
+              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight all</span>
+            </button>
+            <div class="cluster-list" id="borderListContainer">
+              <span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No border points discovered yet.</span>
+            </div>
+          </div>
+
+          <!-- 3. Noise Outliers Drawer -->
           <div class="cluster-dropdown-wrap" id="noiseDropdown">
             <button class="cluster-dropdown-toggle" id="noiseToggleBtn">
               <span>▾ Noise Outliers (-1) (<span id="noiseCountBadge">0</span>)</span>
-              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight</span>
+              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight all</span>
             </button>
             <div class="cluster-list" id="noiseListContainer">
               <span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No noise flagged yet.</span>
             </div>
           </div>
 
-          <!-- 3. Unvisited Points Drawer -->
+          <!-- 4. Unvisited Points Drawer -->
           <div class="cluster-dropdown-wrap" id="unvisitedDropdown">
             <button class="cluster-dropdown-toggle" id="unvisitedToggleBtn">
               <span>▾ Unvisited Points (<span id="unvisitedCountBadge">0</span>)</span>
-              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight</span>
+              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight all</span>
             </button>
             <div class="cluster-list" id="unvisitedListContainer">
               <span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">All points processed or empty.</span>
@@ -1001,11 +1053,13 @@
       minPts: 4,
       metric: "euclidean",
       speed: 12,
-      tool: "point",
+      tool: "select",
       spray: { radiusPx: 28, spread: 0.45, rate: 4 },
       offsetX: 0,
       offsetY: 0,
       zoom: 1.0,
+      followMode: false,
+      showTooltipMode: false,
       dbscanState: "IDLE",
       stepCount: 0,
       currentClusterId: 0,
@@ -1017,8 +1071,14 @@
       stopOnUnvisited: false, stopUnvisitedTarget: null,
       stopOnStep: false, stopStepTarget: null,
       hoveredClusterId: null,
+      hoveredBorderPoint: null,
       hoveredNoisePoint: null,
       hoveredUnvisitedPoint: null,
+      hoveredAllClusters: false,
+      hoveredAllBorder: false,
+      hoveredAllNoise: false,
+      hoveredAllUnvisited: false,
+      hoveredCanvasPoint: null,
       historySnapshots: [],
       scrubbingIndex: null
     };
@@ -1027,6 +1087,7 @@
     const lossCanvas = document.getElementById("lossCanvas");
     const ctx = dataCanvas.getContext("2d");
     const lossCtx = lossCanvas.getContext("2d");
+    const canvasTooltip = document.getElementById("canvasTooltip");
 
     const dims = { data: { w: 0, h: 0 }, loss: { w: 0, h: 0 } };
     const PAD = { l: 20, r: 20, t: 20, b: 20 };
@@ -1100,6 +1161,40 @@
       };
     }
 
+    function centerAndZoomOnPoint(x, y, customZoom = null) {
+      const a = plotArea();
+      if (customZoom !== null) {
+        state.zoom = Math.max(0.001, customZoom);
+      }
+      state.offsetX = 0;
+      state.offsetY = 0;
+      const targetPx = dataToPx(x, y);
+      state.offsetX += (a.x0 + a.w / 2) - targetPx.x;
+      state.offsetY += (a.y0 + a.h / 2) - targetPx.y;
+    }
+
+    function centerAndZoomOnPoints(pts) {
+      if (!pts || pts.length === 0) return;
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      pts.forEach(p => {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      });
+      const spanX = Math.max(1.0, maxX - minX);
+      const spanY = Math.max(1.0, maxY - minY);
+      const avgX = (minX + maxX) / 2;
+      const avgY = (minY + maxY) / 2;
+
+      const a = plotArea();
+      const bScale = baseScale();
+      const zoomX = (a.w * 0.75) / (spanX * bScale);
+      const zoomY = (a.h * 0.75) / (spanY * bScale);
+      state.zoom = Math.max(0.001, Math.min(zoomX, zoomY));
+      centerAndZoomOnPoint(avgX, avgY);
+    }
+
     function calcDist(p1, p2) {
       if (state.metric === "manhattan") {
         return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
@@ -1115,6 +1210,27 @@
     // 1. RENDER SPATIAL CANVAS
     // ==========================================
     const brushCursor = { visible: false, px: 0, py: 0 };
+
+    function updateTooltipDisplay() {
+      const targetPt = state.hoveredCanvasPoint || state.currentPoint;
+      if (targetPt && (state.showTooltipMode || state.hoveredCanvasPoint)) {
+        let desc = "Unvisited";
+        if (targetPt.type === "core") desc = `Core (Cluster #${targetPt.cluster})`;
+        else if (targetPt.type === "border") desc = `Border (Cluster #${targetPt.cluster})`;
+        else if (targetPt.type === "noise" || targetPt.cluster === -1) desc = `Noise (-1)`;
+
+        const neighbors = getNeighbors(targetPt);
+        document.getElementById("ttTitle").textContent = desc;
+        document.getElementById("ttCoords").innerHTML = `x: ${targetPt.x.toFixed(2)}, y: ${targetPt.y.toFixed(2)}<br><span style="color:var(--accent-amber)">|Nε(p)| = ${neighbors.length} neighbors</span>`;
+        
+        const pp = dataToPx(targetPt.x, targetPt.y);
+        canvasTooltip.style.left = pp.x + "px";
+        canvasTooltip.style.top = pp.y + "px";
+        canvasTooltip.classList.add("visible");
+      } else {
+        canvasTooltip.classList.remove("visible");
+      }
+    }
 
     function drawDataCanvas() {
       const w = dims.data.w, h = dims.data.h;
@@ -1191,13 +1307,16 @@
         ctx.fillText(Number(y.toFixed(6)).toString(), clampedX, labelPos.y);
       }
 
-      if (state.currentPoint && state.scrubbingIndex === null) {
-        const cp = dataToPx(state.currentPoint.x, state.currentPoint.y);
+      // Render Epsilon Checking Circle & Lines for currentPoint
+      const targetPointForEps = state.hoveredCanvasPoint || state.currentPoint;
+      if (targetPointForEps) {
+        const cp = dataToPx(targetPointForEps.x, targetPointForEps.y);
         const rPx = state.eps * s;
+        const neighborsOfTarget = getNeighbors(targetPointForEps);
 
-        ctx.strokeStyle = "rgba(251, 191, 36, 0.4)";
+        ctx.strokeStyle = state.hoveredCanvasPoint ? "rgba(56, 189, 248, 0.55)" : "rgba(251, 191, 36, 0.4)";
         ctx.lineWidth = 1.2;
-        state.currentNeighbors.forEach(nb => {
+        neighborsOfTarget.forEach(nb => {
           const np = dataToPx(nb.x, nb.y);
           ctx.beginPath();
           ctx.moveTo(cp.x, cp.y);
@@ -1215,9 +1334,9 @@
         } else {
           ctx.arc(cp.x, cp.y, rPx, 0, Math.PI * 2);
         }
-        ctx.fillStyle = "rgba(251, 191, 36, 0.08)";
+        ctx.fillStyle = state.hoveredCanvasPoint ? "rgba(56, 189, 248, 0.1)" : "rgba(251, 191, 36, 0.08)";
         ctx.fill();
-        ctx.strokeStyle = "rgba(251, 191, 36, 0.85)";
+        ctx.strokeStyle = state.hoveredCanvasPoint ? "rgba(56, 189, 248, 0.9)" : "rgba(251, 191, 36, 0.85)";
         ctx.lineWidth = 1.6;
         ctx.setLineDash([5, 3]);
         ctx.stroke();
@@ -1232,10 +1351,12 @@
         const isBorder = p.type === "border";
         const radius = isCore ? 5.5 : 4.4;
         
-        const isClusterHovered = state.hoveredClusterId !== null && p.cluster === state.hoveredClusterId;
-        const isNoiseHovered = state.hoveredNoisePoint === p;
-        const isUnvisitedHovered = state.hoveredUnvisitedPoint === p;
-        const isHovered = isClusterHovered || isNoiseHovered || isUnvisitedHovered;
+        const isClusterHovered = (state.hoveredClusterId !== null && p.cluster === state.hoveredClusterId) || (state.hoveredAllClusters && p.cluster !== null && p.cluster >= 0);
+        const isBorderHovered = state.hoveredBorderPoint === p || (state.hoveredAllBorder && p.type === "border");
+        const isNoiseHovered = state.hoveredNoisePoint === p || (state.hoveredAllNoise && (p.type === "noise" || p.cluster === -1));
+        const isUnvisitedHovered = state.hoveredUnvisitedPoint === p || (state.hoveredAllUnvisited && p.type === "unvisited");
+        const isCanvasHovered = state.hoveredCanvasPoint === p;
+        const isHovered = isClusterHovered || isBorderHovered || isNoiseHovered || isUnvisitedHovered || isCanvasHovered;
 
         ctx.beginPath();
         ctx.arc(pp.x, pp.y, isHovered ? radius + 3 : radius, 0, Math.PI * 2);
@@ -1251,7 +1372,7 @@
         }
         ctx.fill();
 
-        if ((isBorder && !isHovered) || isNoiseHovered || isUnvisitedHovered) {
+        if ((isBorder && !isHovered) || isBorderHovered || isNoiseHovered || isUnvisitedHovered || isCanvasHovered) {
           ctx.lineWidth = 1.8;
           ctx.strokeStyle = "#ffffff";
           ctx.stroke();
@@ -1269,7 +1390,7 @@
           ctx.stroke();
         }
 
-        if (state.currentPoint === p && state.scrubbingIndex === null) {
+        if (state.currentPoint === p) {
           ctx.beginPath();
           ctx.arc(pp.x, pp.y, radius + 4.5, 0, Math.PI * 2);
           ctx.strokeStyle = "#fbbf24";
@@ -1278,7 +1399,7 @@
         }
       }
 
-      if (brushCursor.visible && state.tool !== "pan" && state.scrubbingIndex === null) {
+      if (brushCursor.visible && state.tool !== "pan" && state.tool !== "select" && state.scrubbingIndex === null) {
         ctx.beginPath();
         if (state.tool === "point") {
           const rPx = state.eps * s;
@@ -1301,6 +1422,8 @@
       ctx.lineWidth = 1;
       ctx.strokeRect(a.x0, a.y0, a.w, a.h);
       ctx.restore();
+
+      updateTooltipDisplay();
     }
 
     // ==========================================
@@ -1415,11 +1538,14 @@
     // 3. DBSCAN STATE MACHINE & TIMELINE SNAPSHOTS
     // ==========================================
     function recordSnapshot() {
+      const activeIdx = state.currentPoint ? state.points.indexOf(state.currentPoint) : -1;
       const pointStates = state.points.map(p => ({ cluster: p.cluster, type: p.type }));
       state.historySnapshots.push({
         stepCount: state.stepCount,
         dbscanState: state.dbscanState,
         currentClusterId: state.currentClusterId,
+        activePointIndex: activeIdx,
+        savedZoom: state.zoom,
         pointStates: pointStates
       });
     }
@@ -1479,6 +1605,8 @@
         }
 
         state.currentPoint = nextPt;
+        if (state.followMode) centerAndZoomOnPoint(nextPt.x, nextPt.y);
+
         const neighbors = getNeighbors(nextPt);
         state.currentNeighbors = neighbors;
 
@@ -1520,6 +1648,8 @@
 
         const pt = state.seedQueue.shift();
         state.currentPoint = pt;
+        if (state.followMode) centerAndZoomOnPoint(pt.x, pt.y);
+
         const neighbors = getNeighbors(pt);
         state.currentNeighbors = neighbors;
 
@@ -1574,7 +1704,7 @@
       const total = state.points.length;
       const unvisited = state.points.filter(p => p.type === "unvisited").length;
       const core = state.points.filter(p => p.type === "core").length;
-      const border = state.points.filter(p => p.type === "border").length;
+      const borderPoints = state.points.filter(p => p.type === "border");
       const noisePoints = state.points.filter(p => p.type === "noise" || p.cluster === -1);
       const clusterIds = Array.from(new Set(state.points.filter(p => p.cluster !== null && p.cluster >= 0).map(p => p.cluster))).sort((a,b)=>a-b);
       const unvisitedPoints = state.points.filter(p => p.type === "unvisited");
@@ -1586,11 +1716,12 @@
       document.getElementById("mathMinPts").textContent = state.minPts;
 
       document.getElementById("statClusters").textContent = clusterIds.length;
-      document.getElementById("statClustered").textContent = `${core} / ${border}`;
+      document.getElementById("statClustered").textContent = `${core} / ${borderPoints.length}`;
       document.getElementById("statNoise").textContent = noisePoints.length;
       document.getElementById("statUnvisited").textContent = unvisited;
 
       document.getElementById("clusterCountBadge").textContent = clusterIds.length;
+      document.getElementById("borderCountBadge").textContent = borderPoints.length;
       document.getElementById("noiseCountBadge").textContent = noisePoints.length;
       document.getElementById("unvisitedCountBadge").textContent = unvisitedPoints.length;
 
@@ -1614,6 +1745,7 @@
       legendHTML += `<span class="legend-item"><i class="swatch" style="background:var(--accent-red)"></i>Noise (-1)</span>`;
       legendContainer.innerHTML = legendHTML;
 
+      // 1. Cluster Breakdown List
       const clusterListContainer = document.getElementById("clusterListContainer");
       if (clusterIds.length === 0) {
         clusterListContainer.innerHTML = `<span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No clusters discovered yet.</span>`;
@@ -1641,6 +1773,10 @@
           const cid = Number(row.dataset.clusterId);
           row.addEventListener("mouseenter", () => {
             state.hoveredClusterId = cid;
+            if (state.followMode) {
+              const cPts = state.points.filter(p => p.cluster === cid);
+              centerAndZoomOnPoints(cPts);
+            }
             drawDataCanvas();
           });
           row.addEventListener("mouseleave", () => {
@@ -1650,6 +1786,41 @@
         });
       }
 
+      // 2. Border Points List
+      const borderListContainer = document.getElementById("borderListContainer");
+      if (borderPoints.length === 0) {
+        borderListContainer.innerHTML = `<span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No border points discovered yet.</span>`;
+      } else {
+        let borderHTML = "";
+        borderPoints.forEach((p, idx) => {
+          const col = p.cluster >= 0 ? PALETTE[p.cluster % PALETTE.length] : "var(--accent-sky)";
+          borderHTML += `
+            <div class="point-item-row" data-border-idx="${idx}">
+              <span class="c-badge">
+                <i class="swatch" style="background:${col}; border:1px solid #fff"></i>
+                <b>Border Pt #${idx + 1} (Cluster #${p.cluster})</b>
+              </span>
+              <span class="c-stats">(${p.x.toFixed(2)}, ${p.y.toFixed(2)})</span>
+            </div>
+          `;
+        });
+        borderListContainer.innerHTML = borderHTML;
+
+        borderListContainer.querySelectorAll(".point-item-row").forEach((row, idx) => {
+          const pt = borderPoints[idx];
+          row.addEventListener("mouseenter", () => {
+            state.hoveredBorderPoint = pt;
+            if (state.followMode) centerAndZoomOnPoint(pt.x, pt.y);
+            drawDataCanvas();
+          });
+          row.addEventListener("mouseleave", () => {
+            state.hoveredBorderPoint = null;
+            drawDataCanvas();
+          });
+        });
+      }
+
+      // 3. Noise Outliers List
       const noiseListContainer = document.getElementById("noiseListContainer");
       if (noisePoints.length === 0) {
         noiseListContainer.innerHTML = `<span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No noise flagged yet.</span>`;
@@ -1672,6 +1843,7 @@
           const pt = noisePoints[idx];
           row.addEventListener("mouseenter", () => {
             state.hoveredNoisePoint = pt;
+            if (state.followMode) centerAndZoomOnPoint(pt.x, pt.y);
             drawDataCanvas();
           });
           row.addEventListener("mouseleave", () => {
@@ -1681,6 +1853,7 @@
         });
       }
 
+      // 4. Unvisited Points List
       const unvisitedListContainer = document.getElementById("unvisitedListContainer");
       if (unvisitedPoints.length === 0) {
         unvisitedListContainer.innerHTML = `<span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">All points processed or empty.</span>`;
@@ -1703,6 +1876,7 @@
           const pt = unvisitedPoints[idx];
           row.addEventListener("mouseenter", () => {
             state.hoveredUnvisitedPoint = pt;
+            if (state.followMode) centerAndZoomOnPoint(pt.x, pt.y);
             drawDataCanvas();
           });
           row.addEventListener("mouseleave", () => {
@@ -1714,7 +1888,7 @@
 
       if (total > 0) {
         const pCore = (core / total) * 100;
-        const pBorder = (border / total) * 100;
+        const pBorder = (borderPoints.length / total) * 100;
         const pNoise = (noisePoints.length / total) * 100;
         const pUnv = (unvisited / total) * 100;
         document.getElementById("segCore").style.width = pCore + "%";
@@ -1749,18 +1923,74 @@
       updateReadouts();
     }
 
-    document.getElementById("clusterToggleBtn").addEventListener("click", () => {
+    // Toggle Drawers & Parent Header Hover-to-Highlight & Follow Listeners
+    const clusterToggleBtn = document.getElementById("clusterToggleBtn");
+    const borderToggleBtn = document.getElementById("borderToggleBtn");
+    const noiseToggleBtn = document.getElementById("noiseToggleBtn");
+    const unvisitedToggleBtn = document.getElementById("unvisitedToggleBtn");
+
+    clusterToggleBtn.addEventListener("click", () => {
       document.getElementById("clusterDropdown").classList.toggle("open");
     });
-    document.getElementById("noiseToggleBtn").addEventListener("click", () => {
+    clusterToggleBtn.addEventListener("mouseenter", () => {
+      state.hoveredAllClusters = true;
+      if (state.followMode && state.points.length) centerAndZoomOnPoints(state.points.filter(p => p.cluster !== null && p.cluster >= 0));
+      drawDataCanvas();
+    });
+    clusterToggleBtn.addEventListener("mouseleave", () => { state.hoveredAllClusters = false; drawDataCanvas(); });
+
+    borderToggleBtn.addEventListener("click", () => {
+      document.getElementById("borderDropdown").classList.toggle("open");
+    });
+    borderToggleBtn.addEventListener("mouseenter", () => {
+      state.hoveredAllBorder = true;
+      const bPts = state.points.filter(p => p.type === "border");
+      if (state.followMode && bPts.length) centerAndZoomOnPoints(bPts);
+      drawDataCanvas();
+    });
+    borderToggleBtn.addEventListener("mouseleave", () => { state.hoveredAllBorder = false; drawDataCanvas(); });
+
+    noiseToggleBtn.addEventListener("click", () => {
       document.getElementById("noiseDropdown").classList.toggle("open");
     });
-    document.getElementById("unvisitedToggleBtn").addEventListener("click", () => {
+    noiseToggleBtn.addEventListener("mouseenter", () => {
+      state.hoveredAllNoise = true;
+      const nPts = state.points.filter(p => p.type === "noise" || p.cluster === -1);
+      if (state.followMode && nPts.length) centerAndZoomOnPoints(nPts);
+      drawDataCanvas();
+    });
+    noiseToggleBtn.addEventListener("mouseleave", () => { state.hoveredAllNoise = false; drawDataCanvas(); });
+
+    unvisitedToggleBtn.addEventListener("click", () => {
       document.getElementById("unvisitedDropdown").classList.toggle("open");
+    });
+    unvisitedToggleBtn.addEventListener("mouseenter", () => {
+      state.hoveredAllUnvisited = true;
+      const uPts = state.points.filter(p => p.type === "unvisited");
+      if (state.followMode && uPts.length) centerAndZoomOnPoints(uPts);
+      drawDataCanvas();
+    });
+    unvisitedToggleBtn.addEventListener("mouseleave", () => { state.hoveredAllUnvisited = false; drawDataCanvas(); });
+
+    // Follow Toggle Button
+    const btnFollow = document.getElementById("btnFollow");
+    btnFollow.addEventListener("click", () => {
+      state.followMode = !state.followMode;
+      btnFollow.textContent = `🎯 Follow: ${state.followMode ? "ON" : "OFF"}`;
+      btnFollow.classList.toggle("active-follow", state.followMode);
+    });
+
+    // Show Tooltip Permanent Toggle Button
+    const btnShowTooltipToggle = document.getElementById("btnShowTooltipToggle");
+    btnShowTooltipToggle.addEventListener("click", () => {
+      state.showTooltipMode = !state.showTooltipMode;
+      btnShowTooltipToggle.textContent = `🏷 Show Tooltip: ${state.showTooltipMode ? "ON" : "OFF"}`;
+      btnShowTooltipToggle.classList.toggle("active-tooltip-toggle", state.showTooltipMode);
+      drawAll();
     });
 
     // ==========================================
-    // 4. TIMELINE SCRUBBER LOGIC
+    // 4. TIMELINE SCRUBBER LOGIC (WITH MEDIA PLAYER BUTTONS)
     // ==========================================
     const timelineBar = document.getElementById("timelineBar");
     const timelineSlider = document.getElementById("timelineSlider");
@@ -1780,6 +2010,8 @@
       stopTimelinePlay();
       timelineBar.classList.remove("visible");
       state.scrubbingIndex = null;
+      state.currentPoint = null;
+      state.currentNeighbors = [];
       drawAll();
     }
 
@@ -1795,6 +2027,23 @@
         }
       }
 
+      if (snap.activePointIndex !== undefined && snap.activePointIndex >= 0 && state.points[snap.activePointIndex]) {
+        state.currentPoint = state.points[snap.activePointIndex];
+        state.currentNeighbors = getNeighbors(state.currentPoint);
+      } else {
+        state.currentPoint = null;
+        state.currentNeighbors = [];
+      }
+
+      if (state.followMode) {
+        if (snap.savedZoom !== undefined) state.zoom = snap.savedZoom;
+        if (state.currentPoint) {
+          centerAndZoomOnPoint(state.currentPoint.x, state.currentPoint.y);
+        } else if (state.points.length > 0) {
+          centerAndZoomOnPoints(state.points);
+        }
+      }
+
       timelineSlider.value = idx;
       timelineStepLabel.textContent = `Step ${snap.stepCount} / ${state.historySnapshots.length - 1}`;
       drawAll();
@@ -1804,6 +2053,23 @@
       stopTimelinePlay();
       const idx = parseInt(e.target.value, 10);
       scrubToSnapshot(idx);
+    });
+
+    document.getElementById("btnTimelineRew1").addEventListener("click", () => {
+      stopTimelinePlay();
+      if (state.scrubbingIndex !== null) scrubToSnapshot(state.scrubbingIndex - 1);
+    });
+    document.getElementById("btnTimelineFwd1").addEventListener("click", () => {
+      stopTimelinePlay();
+      if (state.scrubbingIndex !== null) scrubToSnapshot(state.scrubbingIndex + 1);
+    });
+    document.getElementById("btnTimelineRew5").addEventListener("click", () => {
+      stopTimelinePlay();
+      if (state.scrubbingIndex !== null) scrubToSnapshot(state.scrubbingIndex - 5);
+    });
+    document.getElementById("btnTimelineFwd5").addEventListener("click", () => {
+      stopTimelinePlay();
+      if (state.scrubbingIndex !== null) scrubToSnapshot(state.scrubbingIndex + 5);
     });
 
     document.getElementById("btnTimelineExit").addEventListener("click", exitTimelineScrubber);
@@ -1901,9 +2167,22 @@
     }
 
     function updateToolCursor() {
-      if (state.tool === "pan") dataCanvas.style.cursor = "grab";
+      if (state.tool === "select") dataCanvas.style.cursor = "default";
+      else if (state.tool === "pan") dataCanvas.style.cursor = "grab";
       else if (state.tool === "erase") dataCanvas.style.cursor = "not-allowed";
       else dataCanvas.style.cursor = "crosshair";
+    }
+
+    function findPointAtPx(px, py) {
+      const thresholdPx = 9;
+      for (let i = state.points.length - 1; i >= 0; i--) {
+        const p = state.points[i];
+        const pp = dataToPx(p.x, p.y);
+        if (Math.hypot(pp.x - px, pp.y - py) <= thresholdPx) {
+          return p;
+        }
+      }
+      return null;
     }
 
     dataCanvas.addEventListener("pointerdown", e => {
@@ -1914,7 +2193,9 @@
       brushCursor.py = pos.y;
       brushCursor.visible = true;
 
-      if (state.tool === "pan" || e.shiftKey) {
+      if (state.tool === "select") {
+        return;
+      } else if (state.tool === "pan" || e.shiftKey) {
         isPanning = true;
         panAnchor = { x: pos.x, y: pos.y, ox: state.offsetX, oy: state.offsetY };
         dataCanvas.style.cursor = "grabbing";
@@ -1941,10 +2222,16 @@
       const pos = getLocalPos(dataCanvas, e);
       brushCursor.px = pos.x;
       brushCursor.py = pos.y;
-      brushCursor.visible = state.tool !== "pan";
+      brushCursor.visible = state.tool !== "pan" && state.tool !== "select";
 
       const d = pxToData(pos.x, pos.y);
       document.getElementById("cursorCoord").textContent = `x: ${d.x.toFixed(2)}, y: ${d.y.toFixed(2)}`;
+
+      if (state.tool === "select") {
+        state.hoveredCanvasPoint = findPointAtPx(pos.x, pos.y);
+        drawDataCanvas();
+        return;
+      }
 
       if (isPanning && panAnchor) {
         state.offsetX = panAnchor.ox + (pos.x - panAnchor.x);
@@ -1977,7 +2264,9 @@
     dataCanvas.addEventListener("pointercancel", stopCanvasPointer);
     dataCanvas.addEventListener("pointerleave", () => {
       brushCursor.visible = false;
+      state.hoveredCanvasPoint = null;
       stopCanvasPointer(null);
+      drawDataCanvas();
     });
 
     function zoomAtPoint(factor, screenX, screenY) {
@@ -2013,35 +2302,7 @@
     });
 
     document.getElementById("btnCenterPoints").addEventListener("click", () => {
-      if (state.points.length === 0) {
-        state.offsetX = 0; state.offsetY = 0; state.zoom = 1.0;
-      } else {
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        state.points.forEach(p => {
-          if (p.x < minX) minX = p.x;
-          if (p.x > maxX) maxX = p.x;
-          if (p.y < minY) minY = p.y;
-          if (p.y > maxY) maxY = p.y;
-        });
-
-        const spanX = Math.max(1.0, maxX - minX);
-        const spanY = Math.max(1.0, maxY - minY);
-        const avgX = (minX + maxX) / 2;
-        const avgY = (minY + maxY) / 2;
-
-        const a = plotArea();
-        const bScale = baseScale();
-
-        const zoomX = (a.w * 0.75) / (spanX * bScale);
-        const zoomY = (a.h * 0.75) / (spanY * bScale);
-        state.zoom = Math.max(0.001, Math.min(zoomX, zoomY));
-
-        state.offsetX = 0;
-        state.offsetY = 0;
-        const targetPx = dataToPx(avgX, avgY);
-        state.offsetX += (a.x0 + a.w / 2) - targetPx.x;
-        state.offsetY += (a.y0 + a.h / 2) - targetPx.y;
-      }
+      centerAndZoomOnPoints(state.points);
       updateEpsLabel();
       drawDataCanvas();
     });
@@ -2122,7 +2383,6 @@
 
     document.getElementById("btn-reset-model").addEventListener("click", resetModel);
 
-    // RESTORE ONLY DEFAULT SETTINGS WITHOUT RESETTING THE MODEL RUN
     document.getElementById("btn-reset-settings").addEventListener("click", () => {
       state.eps = 0.85;
       document.getElementById("paramEps").value = 85;
@@ -2153,7 +2413,7 @@
       state.stopStepTarget = null;
 
       updateEpsLabel();
-      drawAll(); // Redraws current state with default settings
+      drawAll();
     });
 
     // ==========================================
@@ -2178,7 +2438,6 @@
         document.getElementById("metricGroup").querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         state.metric = btn.dataset.metric;
-        // Updating metric geometry does not reset model points, but updates math labels & redraws
         drawAll();
       });
     });
