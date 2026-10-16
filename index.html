@@ -1161,13 +1161,8 @@
       };
     }
 
-    function centerAndZoomOnPoint(x, y, customZoom = null) {
+    function centerAndZoomOnPoint(x, y) {
       const a = plotArea();
-      if (customZoom !== null) {
-        state.zoom = Math.max(0.001, customZoom);
-      }
-      state.offsetX = 0;
-      state.offsetY = 0;
       const targetPx = dataToPx(x, y);
       state.offsetX += (a.x0 + a.w / 2) - targetPx.x;
       state.offsetY += (a.y0 + a.h / 2) - targetPx.y;
@@ -1192,7 +1187,11 @@
       const zoomX = (a.w * 0.75) / (spanX * bScale);
       const zoomY = (a.h * 0.75) / (spanY * bScale);
       state.zoom = Math.max(0.001, Math.min(zoomX, zoomY));
-      centerAndZoomOnPoint(avgX, avgY);
+      state.offsetX = 0;
+      state.offsetY = 0;
+      const targetPx = dataToPx(avgX, avgY);
+      state.offsetX += (a.x0 + a.w / 2) - targetPx.x;
+      state.offsetY += (a.y0 + a.h / 2) - targetPx.y;
     }
 
     function calcDist(p1, p2) {
@@ -1540,13 +1539,17 @@
     function recordSnapshot() {
       const activeIdx = state.currentPoint ? state.points.indexOf(state.currentPoint) : -1;
       const pointStates = state.points.map(p => ({ cluster: p.cluster, type: p.type }));
+      const consoleHTML = document.getElementById("model-state-container").innerHTML;
+      const queueListState = [...state.seedQueue];
+
       state.historySnapshots.push({
         stepCount: state.stepCount,
         dbscanState: state.dbscanState,
         currentClusterId: state.currentClusterId,
         activePointIndex: activeIdx,
-        savedZoom: state.zoom,
-        pointStates: pointStates
+        pointStates: pointStates,
+        consoleHTML: consoleHTML,
+        queueListState: queueListState
       });
     }
 
@@ -1568,12 +1571,12 @@
       state.currentNeighbors = [];
       state.lossHistory = [state.points.length];
 
+      updateLogPanel("Model reset. Ready to begin density scan.");
       recordSnapshot();
 
       document.getElementById("mathDecision").innerHTML = `<span style="color:var(--text-muted)">Idle</span>`;
       document.getElementById("activeCoordBadge").textContent = "p = none";
       document.getElementById("readoutNeighbors").textContent = "0";
-      updateLogPanel("Model reset. Ready to begin density scan.");
       drawAll();
     }
 
@@ -1904,15 +1907,22 @@
         document.getElementById("distSummaryText").textContent = "0% Processed";
       }
 
+      // NOTE: Queue chips are updated dynamically during timeline scrub via scrubToSnapshot()
+    }
+
+    function updateQueueDisplay(queueArr) {
       const queuePills = document.getElementById("queuePills");
-      document.getElementById("queueCountLabel").textContent = `${state.seedQueue.length} queued`;
-      if (state.seedQueue.length === 0 || state.scrubbingIndex !== null) {
+      document.getElementById("queueCountLabel").textContent = `${queueArr.length} queued`;
+      if (queueArr.length === 0 || state.scrubbingIndex !== null && state.scrubbingIndex >= state.historySnapshots.length - 1) {
+        // If converged or empty
+      }
+      if (queueArr.length === 0) {
         queuePills.innerHTML = `<span style="color:var(--text-dim);">No active cluster expansion.</span>`;
       } else {
-        const chips = state.seedQueue.slice(0, 16).map((p, idx) =>
+        const chips = queueArr.slice(0, 16).map((p, idx) =>
           `<span class="q-chip ${idx === 0 ? 'next' : ''}">(${p.x.toFixed(1)}, ${p.y.toFixed(1)})</span>`
         ).join("");
-        const extra = state.seedQueue.length > 16 ? `<span class="q-chip">+${state.seedQueue.length - 16} more</span>` : "";
+        const extra = queueArr.length > 16 ? `<span class="q-chip">+${queueArr.length - 16} more</span>` : "";
         queuePills.innerHTML = chips + extra;
       }
     }
@@ -1990,7 +2000,7 @@
     });
 
     // ==========================================
-    // 4. TIMELINE SCRUBBER LOGIC (WITH MEDIA PLAYER BUTTONS)
+    // 4. TIMELINE SCRUBBER LOGIC (WITH QUEUE & CONSOLE REPLAY)
     // ==========================================
     const timelineBar = document.getElementById("timelineBar");
     const timelineSlider = document.getElementById("timelineSlider");
@@ -2035,13 +2045,16 @@
         state.currentNeighbors = [];
       }
 
-      if (state.followMode) {
-        if (snap.savedZoom !== undefined) state.zoom = snap.savedZoom;
-        if (state.currentPoint) {
-          centerAndZoomOnPoint(state.currentPoint.x, state.currentPoint.y);
-        } else if (state.points.length > 0) {
-          centerAndZoomOnPoints(state.points);
-        }
+      // Replay console message and queue chips stored in snapshot
+      if (snap.consoleHTML) {
+        updateLogPanel(snap.consoleHTML);
+      }
+      if (snap.queueListState) {
+        updateQueueDisplay(snap.queueListState);
+      }
+
+      if (state.followMode && state.currentPoint) {
+        centerAndZoomOnPoint(state.currentPoint.x, state.currentPoint.y);
       }
 
       timelineSlider.value = idx;
