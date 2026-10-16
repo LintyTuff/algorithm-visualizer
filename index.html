@@ -292,10 +292,11 @@
     pointer-events: none;
     z-index: 10;
     transform: translate(14px, -50%);
+    max-width: 290px;
   }
   .canvas-tooltip.visible { display: block; }
   .canvas-tooltip .tt-title { color: var(--accent-amber); font-weight: 600; margin-bottom: 2px; }
-  .canvas-tooltip .tt-sub { color: var(--text-muted); font-size: 0.7rem; }
+  .canvas-tooltip .tt-sub { color: var(--text-muted); font-size: 0.7rem; line-height: 1.45; }
 
   /* Timeline Scrubber Container */
   .timeline-bar-wrap {
@@ -756,12 +757,12 @@
             <div class="canvas-hud">
               <div class="hud-pill" id="cursorCoord">x: 0.00, y: 0.00</div>
               <div class="hud-pill">
-                <button class="hud-btn" id="btnShowTooltipToggle" title="Toggle Permanent Step/Point Tooltip">Pin Tooltip: OFF</button>
-                <button class="hud-btn" id="btnFollow" title="Toggle Follow Camera Mode">Follow: OFF</button>
+                <button class="hud-btn" id="btnShowTooltipToggle" title="Toggle Permanent Step/Point Tooltip">🏷 Show Tooltip: OFF</button>
+                <button class="hud-btn" id="btnFollow" title="Toggle Follow Camera Mode">🎯 Follow: OFF</button>
                 <button class="hud-btn" id="btnZoomIn" title="Zoom In">+</button>
                 <button class="hud-btn" id="btnZoomOut" title="Zoom Out">−</button>
                 <button class="hud-btn" id="btnResetView" title="Reset to (0,0) Origin">0,0</button>
-                <button class="hud-btn" id="btnCenterPoints" title="Center & Zoom on Points">Center</button>
+                <button class="hud-btn" id="btnCenterPoints" title="Center & Zoom on Points">🎯 Center</button>
               </div>
             </div>
           </div>
@@ -776,13 +777,15 @@
               <span>🎞 Convergence Timeline Scrubber</span>
               <span id="timelineStepLabel">Step 0 / 0</span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <button class="studio-btn" id="btnTimelineStart" style="padding:4px 8px; font-size:0.7rem;" title="Skip to start (Step 0)">∣◄ Start</button>
               <button class="studio-btn" id="btnTimelineRew5" style="padding:4px 8px; font-size:0.7rem;" title="Rewind 5 points">◄◄ 5 Pts</button>
               <button class="studio-btn" id="btnTimelineRew1" style="padding:4px 8px; font-size:0.7rem;" title="Rewind 1 point">◄ Step</button>
               <button class="studio-btn" id="btnTimelinePlay" style="padding:4px 10px; font-size:0.75rem;">▶ Play</button>
               <button class="studio-btn" id="btnTimelineFwd1" style="padding:4px 8px; font-size:0.7rem;" title="Forward 1 point">Step ►</button>
               <button class="studio-btn" id="btnTimelineFwd5" style="padding:4px 8px; font-size:0.7rem;" title="Forward 5 points">5 Pts ►►</button>
-              <input type="range" id="timelineSlider" min="0" max="0" value="0" style="flex:1;" />
+              <button class="studio-btn" id="btnTimelineEnd" style="padding:4px 8px; font-size:0.7rem;" title="Skip to end">End ►∣</button>
+              <input type="range" id="timelineSlider" min="0" max="0" value="0" style="flex:1; min-width:120px;" />
               <button class="studio-btn" id="btnTimelineExit" style="padding:4px 10px; font-size:0.75rem;" title="Exit scrubber mode">✕ Exit</button>
             </div>
           </div>
@@ -1205,14 +1208,109 @@
       return state.points.filter(p => calcDist(p, point) <= state.eps);
     }
 
+    function getGroupCentroid(pts) {
+      if (!pts || pts.length === 0) return state.currentPoint || { x: 0, y: 0 };
+      let sx = 0, sy = 0;
+      pts.forEach(p => { sx += p.x; sy += p.y; });
+      return { x: sx / pts.length, y: sy / pts.length };
+    }
+
+    function positionTooltipAtDataPoint(pt) {
+      const a = plotArea();
+      const pp = dataToPx(pt.x, pt.y);
+      const clampedX = clamp(pp.x, a.x0 + 16, Math.max(a.x0 + 20, a.x0 + a.w - 230));
+      const clampedY = clamp(pp.y, a.y0 + 36, Math.max(a.y0 + 40, a.y0 + a.h - 36));
+      canvasTooltip.style.left = clampedX + "px";
+      canvasTooltip.style.top = clampedY + "px";
+      canvasTooltip.classList.add("visible");
+    }
+
     // ==========================================
     // 1. RENDER SPATIAL CANVAS
     // ==========================================
     const brushCursor = { visible: false, px: 0, py: 0 };
 
     function updateTooltipDisplay() {
-      const targetPt = state.hoveredCanvasPoint || state.currentPoint;
-      if (targetPt && (state.showTooltipMode || state.hoveredCanvasPoint)) {
+      const isParentHeaderHovered =
+        state.hoveredAllClusters ||
+        state.hoveredAllBorder ||
+        state.hoveredAllNoise ||
+        state.hoveredAllUnvisited;
+
+      // 1. When Show Tooltip is ON and a parent dropdown header is hovered,
+      // display aggregate category-level summaries instead of individual point coordinates.
+      if (isParentHeaderHovered) {
+        if (!state.showTooltipMode) {
+          canvasTooltip.classList.remove("visible");
+          return;
+        }
+
+        const total = state.points.length;
+        let parentHeaderTitle = "";
+        let parentHeaderSub = "";
+        let anchorPt = null;
+
+        if (state.hoveredAllClusters) {
+          const cPts = state.points.filter(p => p.cluster !== null && p.cluster >= 0);
+          const numClusters = new Set(cPts.map(p => p.cluster)).size;
+          const coreCount = cPts.filter(p => p.type === "core").length;
+          const borderCount = cPts.filter(p => p.type === "border").length;
+          const pct = total > 0 ? Math.round((cPts.length / total) * 100) : 0;
+
+          parentHeaderTitle = `Discovered Density Clusters (${numClusters})`;
+          parentHeaderSub = `Clustered Points: <b>${cPts.length}</b> (${pct}% of dataset)<br><span style="color:var(--accent-amber)">Breakdown: ${coreCount} Core, ${borderCount} Border</span>`;
+          anchorPt = getGroupCentroid(cPts);
+        } else if (state.hoveredAllBorder) {
+          const bPts = state.points.filter(p => p.type === "border");
+          const borderClusters = new Set(bPts.map(p => p.cluster)).size;
+          const pct = total > 0 ? Math.round((bPts.length / total) * 100) : 0;
+
+          parentHeaderTitle = `Border Points Summary`;
+          parentHeaderSub = `Total Border Points: <b>${bPts.length}</b> (${pct}% of dataset)<br><span style="color:var(--accent-amber)">Bridging ${borderClusters} density cluster(s)</span>`;
+          anchorPt = getGroupCentroid(bPts);
+        } else if (state.hoveredAllNoise) {
+          const nPts = state.points.filter(p => p.type === "noise" || p.cluster === -1);
+          const pct = total > 0 ? Math.round((nPts.length / total) * 100) : 0;
+
+          parentHeaderTitle = `Noise Outliers (-1) Summary`;
+          parentHeaderSub = `Total Outliers Flagged: <b>${nPts.length}</b> (${pct}% of dataset)<br><span style="color:var(--accent-amber)">Threshold: |Nε(p)| &lt; ${state.minPts} within ε=${state.eps.toFixed(2)}</span>`;
+          anchorPt = getGroupCentroid(nPts);
+        } else if (state.hoveredAllUnvisited) {
+          const uPts = state.points.filter(p => p.type === "unvisited");
+          const pct = total > 0 ? Math.round((uPts.length / total) * 100) : 0;
+
+          parentHeaderTitle = `Unvisited Points Summary`;
+          parentHeaderSub = `Unprocessed Points: <b>${uPts.length} / ${total}</b> (${pct}% remaining)<br><span style="color:var(--accent-amber)">Awaiting DBSCAN neighborhood scan</span>`;
+          anchorPt = getGroupCentroid(uPts);
+        }
+
+        if (parentHeaderTitle && anchorPt) {
+          document.getElementById("ttTitle").textContent = parentHeaderTitle;
+          document.getElementById("ttCoords").innerHTML = parentHeaderSub;
+          positionTooltipAtDataPoint(anchorPt);
+          return;
+        }
+      }
+
+      // 2. Individual point hover on canvas or individual item rows in dropdown drawers
+      if (state.hoveredCanvasPoint) {
+        const hitPt = state.hoveredCanvasPoint;
+        let desc = "Unvisited";
+        if (hitPt.type === "core") desc = `Core (Cluster #${hitPt.cluster})`;
+        else if (hitPt.type === "border") desc = `Border (Cluster #${hitPt.cluster})`;
+        else if (hitPt.type === "noise" || hitPt.cluster === -1) desc = `Noise (-1)`;
+
+        const neighbors = getNeighbors(hitPt);
+        document.getElementById("ttTitle").textContent = desc;
+        document.getElementById("ttCoords").innerHTML = `x: ${hitPt.x.toFixed(2)}, y: ${hitPt.y.toFixed(2)}<br><span style="color:var(--accent-amber)">|Nε(p)| = ${neighbors.length} neighbors</span>`;
+
+        positionTooltipAtDataPoint(hitPt);
+        return;
+      }
+
+      // 3. Active simulation step point when Show Tooltip is ON
+      if (state.showTooltipMode && state.currentPoint) {
+        const targetPt = state.currentPoint;
         let desc = "Unvisited";
         if (targetPt.type === "core") desc = `Core (Cluster #${targetPt.cluster})`;
         else if (targetPt.type === "border") desc = `Border (Cluster #${targetPt.cluster})`;
@@ -1221,14 +1319,11 @@
         const neighbors = getNeighbors(targetPt);
         document.getElementById("ttTitle").textContent = desc;
         document.getElementById("ttCoords").innerHTML = `x: ${targetPt.x.toFixed(2)}, y: ${targetPt.y.toFixed(2)}<br><span style="color:var(--accent-amber)">|Nε(p)| = ${neighbors.length} neighbors</span>`;
-        
-        const pp = dataToPx(targetPt.x, targetPt.y);
-        canvasTooltip.style.left = pp.x + "px";
-        canvasTooltip.style.top = pp.y + "px";
-        canvasTooltip.classList.add("visible");
-      } else {
-        canvasTooltip.classList.remove("visible");
+        positionTooltipAtDataPoint(targetPt);
+        return;
       }
+
+      canvasTooltip.classList.remove("visible");
     }
 
     function drawDataCanvas() {
@@ -1307,13 +1402,19 @@
       }
 
       // Render Epsilon Checking Circle & Lines for currentPoint
-      const targetPointForEps = state.hoveredCanvasPoint || state.currentPoint;
+      let targetPointForEps = state.hoveredCanvasPoint || state.hoveredBorderPoint || state.hoveredNoisePoint || state.hoveredUnvisitedPoint;
+      if (!targetPointForEps && state.hoveredClusterId !== null) {
+        const cPts = state.points.filter(p => p.cluster === state.hoveredClusterId);
+        if (cPts.length > 0) targetPointForEps = cPts[0];
+      }
+      if (!targetPointForEps) targetPointForEps = state.currentPoint;
+
       if (targetPointForEps) {
         const cp = dataToPx(targetPointForEps.x, targetPointForEps.y);
         const rPx = state.eps * s;
         const neighborsOfTarget = getNeighbors(targetPointForEps);
 
-        ctx.strokeStyle = state.hoveredCanvasPoint ? "rgba(56, 189, 248, 0.55)" : "rgba(251, 191, 36, 0.4)";
+        ctx.strokeStyle = (state.hoveredCanvasPoint || state.hoveredClusterId !== null || state.hoveredBorderPoint || state.hoveredNoisePoint || state.hoveredUnvisitedPoint) ? "rgba(56, 189, 248, 0.55)" : "rgba(251, 191, 36, 0.4)";
         ctx.lineWidth = 1.2;
         neighborsOfTarget.forEach(nb => {
           const np = dataToPx(nb.x, nb.y);
@@ -1333,9 +1434,9 @@
         } else {
           ctx.arc(cp.x, cp.y, rPx, 0, Math.PI * 2);
         }
-        ctx.fillStyle = state.hoveredCanvasPoint ? "rgba(56, 189, 248, 0.1)" : "rgba(251, 191, 36, 0.08)";
+        ctx.fillStyle = (state.hoveredCanvasPoint || state.hoveredClusterId !== null || state.hoveredBorderPoint || state.hoveredNoisePoint || state.hoveredUnvisitedPoint) ? "rgba(56, 189, 248, 0.1)" : "rgba(251, 191, 36, 0.08)";
         ctx.fill();
-        ctx.strokeStyle = state.hoveredCanvasPoint ? "rgba(56, 189, 248, 0.9)" : "rgba(251, 191, 36, 0.85)";
+        ctx.strokeStyle = (state.hoveredCanvasPoint || state.hoveredClusterId !== null || state.hoveredBorderPoint || state.hoveredNoisePoint || state.hoveredUnvisitedPoint) ? "rgba(56, 189, 248, 0.9)" : "rgba(251, 191, 36, 0.85)";
         ctx.lineWidth = 1.6;
         ctx.setLineDash([5, 3]);
         ctx.stroke();
@@ -1349,7 +1450,7 @@
         const isCore = p.type === "core";
         const isBorder = p.type === "border";
         const radius = isCore ? 5.5 : 4.4;
-        
+
         const isClusterHovered = (state.hoveredClusterId !== null && p.cluster === state.hoveredClusterId) || (state.hoveredAllClusters && p.cluster !== null && p.cluster >= 0);
         const isBorderHovered = state.hoveredBorderPoint === p || (state.hoveredAllBorder && p.type === "border");
         const isNoiseHovered = state.hoveredNoisePoint === p || (state.hoveredAllNoise && (p.type === "noise" || p.cluster === -1));
@@ -1776,14 +1877,14 @@
           const cid = Number(row.dataset.clusterId);
           row.addEventListener("mouseenter", () => {
             state.hoveredClusterId = cid;
-            if (state.followMode) {
-              const cPts = state.points.filter(p => p.cluster === cid);
-              centerAndZoomOnPoints(cPts);
-            }
+            const cPts = state.points.filter(p => p.cluster === cid);
+            if (cPts.length > 0) state.hoveredCanvasPoint = cPts[0];
+            if (state.followMode) centerAndZoomOnPoints(cPts);
             drawDataCanvas();
           });
           row.addEventListener("mouseleave", () => {
             state.hoveredClusterId = null;
+            state.hoveredCanvasPoint = null;
             drawDataCanvas();
           });
         });
@@ -1813,11 +1914,13 @@
           const pt = borderPoints[idx];
           row.addEventListener("mouseenter", () => {
             state.hoveredBorderPoint = pt;
+            state.hoveredCanvasPoint = pt;
             if (state.followMode) centerAndZoomOnPoint(pt.x, pt.y);
             drawDataCanvas();
           });
           row.addEventListener("mouseleave", () => {
             state.hoveredBorderPoint = null;
+            state.hoveredCanvasPoint = null;
             drawDataCanvas();
           });
         });
@@ -1846,11 +1949,13 @@
           const pt = noisePoints[idx];
           row.addEventListener("mouseenter", () => {
             state.hoveredNoisePoint = pt;
+            state.hoveredCanvasPoint = pt;
             if (state.followMode) centerAndZoomOnPoint(pt.x, pt.y);
             drawDataCanvas();
           });
           row.addEventListener("mouseleave", () => {
             state.hoveredNoisePoint = null;
+            state.hoveredCanvasPoint = null;
             drawDataCanvas();
           });
         });
@@ -1879,11 +1984,13 @@
           const pt = unvisitedPoints[idx];
           row.addEventListener("mouseenter", () => {
             state.hoveredUnvisitedPoint = pt;
+            state.hoveredCanvasPoint = pt;
             if (state.followMode) centerAndZoomOnPoint(pt.x, pt.y);
             drawDataCanvas();
           });
           row.addEventListener("mouseleave", () => {
             state.hoveredUnvisitedPoint = null;
+            state.hoveredCanvasPoint = null;
             drawDataCanvas();
           });
         });
@@ -1906,16 +2013,11 @@
         document.getElementById("segUnvisited").style.width = "100%";
         document.getElementById("distSummaryText").textContent = "0% Processed";
       }
-
-      // NOTE: Queue chips are updated dynamically during timeline scrub via scrubToSnapshot()
     }
 
     function updateQueueDisplay(queueArr) {
       const queuePills = document.getElementById("queuePills");
       document.getElementById("queueCountLabel").textContent = `${queueArr.length} queued`;
-      if (queueArr.length === 0 || state.scrubbingIndex !== null && state.scrubbingIndex >= state.historySnapshots.length - 1) {
-        // If converged or empty
-      }
       if (queueArr.length === 0) {
         queuePills.innerHTML = `<span style="color:var(--text-dim);">No active cluster expansion.</span>`;
       } else {
@@ -1933,7 +2035,7 @@
       updateReadouts();
     }
 
-    // Toggle Drawers & Parent Header Hover-to-Highlight & Follow Listeners
+    // Toggle Drawers & Parent Header Hover-to-Highlight & Aggregate Summary Listeners
     const clusterToggleBtn = document.getElementById("clusterToggleBtn");
     const borderToggleBtn = document.getElementById("borderToggleBtn");
     const noiseToggleBtn = document.getElementById("noiseToggleBtn");
@@ -1944,43 +2046,64 @@
     });
     clusterToggleBtn.addEventListener("mouseenter", () => {
       state.hoveredAllClusters = true;
-      if (state.followMode && state.points.length) centerAndZoomOnPoints(state.points.filter(p => p.cluster !== null && p.cluster >= 0));
+      state.hoveredCanvasPoint = null;
+      const cPts = state.points.filter(p => p.cluster !== null && p.cluster >= 0);
+      if (state.followMode && cPts.length) centerAndZoomOnPoints(cPts);
       drawDataCanvas();
     });
-    clusterToggleBtn.addEventListener("mouseleave", () => { state.hoveredAllClusters = false; drawDataCanvas(); });
+    clusterToggleBtn.addEventListener("mouseleave", () => {
+      state.hoveredAllClusters = false;
+      state.hoveredCanvasPoint = null;
+      drawDataCanvas();
+    });
 
     borderToggleBtn.addEventListener("click", () => {
       document.getElementById("borderDropdown").classList.toggle("open");
     });
     borderToggleBtn.addEventListener("mouseenter", () => {
       state.hoveredAllBorder = true;
+      state.hoveredCanvasPoint = null;
       const bPts = state.points.filter(p => p.type === "border");
       if (state.followMode && bPts.length) centerAndZoomOnPoints(bPts);
       drawDataCanvas();
     });
-    borderToggleBtn.addEventListener("mouseleave", () => { state.hoveredAllBorder = false; drawDataCanvas(); });
+    borderToggleBtn.addEventListener("mouseleave", () => {
+      state.hoveredAllBorder = false;
+      state.hoveredCanvasPoint = null;
+      drawDataCanvas();
+    });
 
     noiseToggleBtn.addEventListener("click", () => {
       document.getElementById("noiseDropdown").classList.toggle("open");
     });
     noiseToggleBtn.addEventListener("mouseenter", () => {
       state.hoveredAllNoise = true;
+      state.hoveredCanvasPoint = null;
       const nPts = state.points.filter(p => p.type === "noise" || p.cluster === -1);
       if (state.followMode && nPts.length) centerAndZoomOnPoints(nPts);
       drawDataCanvas();
     });
-    noiseToggleBtn.addEventListener("mouseleave", () => { state.hoveredAllNoise = false; drawDataCanvas(); });
+    noiseToggleBtn.addEventListener("mouseleave", () => {
+      state.hoveredAllNoise = false;
+      state.hoveredCanvasPoint = null;
+      drawDataCanvas();
+    });
 
     unvisitedToggleBtn.addEventListener("click", () => {
       document.getElementById("unvisitedDropdown").classList.toggle("open");
     });
     unvisitedToggleBtn.addEventListener("mouseenter", () => {
       state.hoveredAllUnvisited = true;
+      state.hoveredCanvasPoint = null;
       const uPts = state.points.filter(p => p.type === "unvisited");
       if (state.followMode && uPts.length) centerAndZoomOnPoints(uPts);
       drawDataCanvas();
     });
-    unvisitedToggleBtn.addEventListener("mouseleave", () => { state.hoveredAllUnvisited = false; drawDataCanvas(); });
+    unvisitedToggleBtn.addEventListener("mouseleave", () => {
+      state.hoveredAllUnvisited = false;
+      state.hoveredCanvasPoint = null;
+      drawDataCanvas();
+    });
 
     // Follow Toggle Button
     const btnFollow = document.getElementById("btnFollow");
@@ -2000,7 +2123,7 @@
     });
 
     // ==========================================
-    // 4. TIMELINE SCRUBBER LOGIC (WITH QUEUE & CONSOLE REPLAY)
+    // 4. TIMELINE SCRUBBER LOGIC (WITH MEDIA PLAYER BUTTONS)
     // ==========================================
     const timelineBar = document.getElementById("timelineBar");
     const timelineSlider = document.getElementById("timelineSlider");
@@ -2029,7 +2152,7 @@
       idx = clamp(idx, 0, state.historySnapshots.length - 1);
       state.scrubbingIndex = idx;
       const snap = state.historySnapshots[idx];
-      
+
       for (let i = 0; i < state.points.length; i++) {
         if (snap.pointStates[i]) {
           state.points[i].cluster = snap.pointStates[i].cluster;
@@ -2045,7 +2168,6 @@
         state.currentNeighbors = [];
       }
 
-      // Replay console message and queue chips stored in snapshot
       if (snap.consoleHTML) {
         updateLogPanel(snap.consoleHTML);
       }
@@ -2068,6 +2190,10 @@
       scrubToSnapshot(idx);
     });
 
+    document.getElementById("btnTimelineStart").addEventListener("click", () => {
+      stopTimelinePlay();
+      if (state.historySnapshots.length > 0) scrubToSnapshot(0);
+    });
     document.getElementById("btnTimelineRew1").addEventListener("click", () => {
       stopTimelinePlay();
       if (state.scrubbingIndex !== null) scrubToSnapshot(state.scrubbingIndex - 1);
@@ -2083,6 +2209,10 @@
     document.getElementById("btnTimelineFwd5").addEventListener("click", () => {
       stopTimelinePlay();
       if (state.scrubbingIndex !== null) scrubToSnapshot(state.scrubbingIndex + 5);
+    });
+    document.getElementById("btnTimelineEnd").addEventListener("click", () => {
+      stopTimelinePlay();
+      if (state.historySnapshots.length > 0) scrubToSnapshot(state.historySnapshots.length - 1);
     });
 
     document.getElementById("btnTimelineExit").addEventListener("click", exitTimelineScrubber);
