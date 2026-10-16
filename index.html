@@ -268,6 +268,29 @@
   }
   .hud-btn:hover { background: var(--border-subtle); color: var(--accent-rose); }
 
+  /* Timeline Scrubber Container */
+  .timeline-bar-wrap {
+    background: var(--bg-elevated);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    animation: fadeIn 0.3s ease;
+  }
+  .timeline-bar-wrap.visible { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .timeline-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--accent-amber);
+  }
+
   /* Segmented Control Bars */
   .toolbar-grid {
     display: flex;
@@ -361,6 +384,9 @@
     cursor: pointer;
   }
 
+  #timelineSlider::-webkit-slider-thumb { background: var(--accent-amber); box-shadow: 0 0 10px rgba(251, 191, 36, 0.6); }
+  #timelineSlider::-moz-range-thumb { background: var(--accent-amber); }
+
   /* Buttons & Select */
   select, input[type="number"] {
     background: var(--bg-elevated);
@@ -423,13 +449,14 @@
   .legend-strip {
     display: flex;
     flex-wrap: wrap;
-    gap: 14px;
-    font-size: 0.75rem;
+    gap: 12px;
+    font-size: 0.74rem;
     color: var(--text-muted);
     padding: 2px 4px;
+    align-items: center;
   }
-  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
-  .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 
   /* Stop Rules */
   .rules-row {
@@ -517,6 +544,80 @@
     margin-top: 4px;
   }
 
+  /* Expandable Breakdown Drawers */
+  .cluster-dropdown-wrap {
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .cluster-dropdown-toggle {
+    width: 100%;
+    background: var(--bg-elevated);
+    border: none;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .cluster-dropdown-toggle:hover { color: var(--text-main); background: #2b1824; }
+  .cluster-list {
+    display: none;
+    flex-direction: column;
+    max-height: 140px;
+    overflow-y: auto;
+    padding: 6px;
+    gap: 4px;
+  }
+  .cluster-dropdown-wrap.open .cluster-list { display: flex; }
+  .cluster-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  .cluster-row:hover {
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--accent-amber);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+  }
+  .cluster-row .c-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cluster-row .c-stats { color: var(--text-dim); }
+  .cluster-row:hover .c-stats { color: var(--accent-amber); }
+
+  .point-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.73rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  .point-item-row:hover {
+    background: rgba(244, 63, 94, 0.15);
+    color: var(--accent-rose);
+    border: 1px solid rgba(244, 63, 94, 0.3);
+  }
+
   .queue-drawer {
     background: var(--bg-base);
     border: 1px solid var(--border-subtle);
@@ -596,7 +697,7 @@
     </div>
   </header>
 
-  <!-- Main Split Body (Independent Vertical Scrollbars) -->
+  <!-- Main Split Body -->
   <main class="workspace">
 
     <!-- LEFT COLUMN -->
@@ -618,23 +719,32 @@
         <div class="module-content">
           <div class="canvas-stage">
             <canvas id="dataCanvas"></canvas>
-            <!-- Floating HUD Overlay -->
             <div class="canvas-hud">
               <div class="hud-pill" id="cursorCoord">x: 0.00, y: 0.00</div>
               <div class="hud-pill">
                 <button class="hud-btn" id="btnZoomIn" title="Zoom In">+</button>
                 <button class="hud-btn" id="btnZoomOut" title="Zoom Out">−</button>
-                <button class="hud-btn" id="btnResetView" title="Reset 1:1 View">1:1</button>
+                <button class="hud-btn" id="btnResetView" title="Reset to (0,0) Origin">0,0</button>
+                <button class="hud-btn" id="btnCenterPoints" title="Center & Zoom on Points">Center</button>
               </div>
             </div>
           </div>
 
-          <div class="legend-strip">
+          <div class="legend-strip" id="dynamicLegend">
             <span class="legend-item"><i class="swatch" style="background:#825f6e"></i>Unvisited</span>
-            <span class="legend-item"><i class="swatch" style="background:var(--accent-emerald); border:1.5px solid #fff"></i>Core (≥ MinPts)</span>
-            <span class="legend-item"><i class="swatch" style="background:var(--accent-sky)"></i>Border</span>
             <span class="legend-item"><i class="swatch" style="background:var(--accent-red)"></i>Noise (-1)</span>
-            <span class="legend-item"><i class="swatch" style="border:1.5px dashed var(--accent-amber); background:transparent"></i>Active ε-Neighborhood</span>
+          </div>
+
+          <div class="timeline-bar-wrap" id="timelineBar">
+            <div class="timeline-top">
+              <span>🎞 Convergence Timeline Scrubber</span>
+              <span id="timelineStepLabel">Step 0 / 0</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <button class="studio-btn" id="btnTimelinePlay" style="padding:4px 10px; font-size:0.75rem;">▶ Play</button>
+              <input type="range" id="timelineSlider" min="0" max="0" value="0" style="flex:1;" />
+              <button class="studio-btn" id="btnTimelineExit" style="padding:4px 10px; font-size:0.75rem;" title="Exit scrubber mode">✕ Exit</button>
+            </div>
           </div>
 
           <div class="toolbar-grid">
@@ -726,9 +836,10 @@
           </div>
 
           <div style="display:flex; gap:8px; margin-top:4px;">
-            <button class="studio-btn" id="btn-step" style="flex:1;">⏭ Step Once</button>
-            <button class="studio-btn run-primary" id="btn-play" style="flex:2;">▶ Play to Convergence</button>
-            <button class="studio-btn" id="btn-reset">↺ Reset Model</button>
+            <button class="studio-btn" id="btn-step" style="flex:1;" title="Advance 1 simulation step">⏭ Step Once</button>
+            <button class="studio-btn run-primary" id="btn-play" style="flex:1.5;" title="Play animation to convergence">▶ Play</button>
+            <button class="studio-btn" id="btn-reset-model" style="flex:1;" title="Reset model state & steps">↺ Reset Model</button>
+            <button class="studio-btn danger-outline" id="btn-reset-settings" style="flex:1;" title="Reset settings to defaults">↺ Reset Settings</button>
           </div>
           <div id="stopStatus" style="font-family:var(--font-mono); font-size:0.74rem; color:var(--accent-emerald); min-height:14px;"></div>
         </div>
@@ -765,7 +876,7 @@
           <div class="dist-bar-wrap">
             <div class="dist-bar-labels">
               <span>Classification Breakdown</span>
-              <span id="distSummaryText">100% Unvisited</span>
+              <span id="distSummaryText">100% Processed</span>
             </div>
             <div class="dist-bar">
               <div class="dist-seg" id="segCore" style="width:0%; background:var(--accent-emerald);" title="Core"></div>
@@ -791,6 +902,39 @@
             <div class="kpi-card">
               <div class="k-title">Unvisited</div>
               <div class="k-num" id="statUnvisited" style="color:var(--accent-amber)">0</div>
+            </div>
+          </div>
+
+          <!-- 1. Discovered Density Clusters Drawer -->
+          <div class="cluster-dropdown-wrap" id="clusterDropdown">
+            <button class="cluster-dropdown-toggle" id="clusterToggleBtn">
+              <span>▾ Discovered Density Clusters (<span id="clusterCountBadge">0</span>)</span>
+              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight</span>
+            </button>
+            <div class="cluster-list" id="clusterListContainer">
+              <span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No clusters discovered yet.</span>
+            </div>
+          </div>
+
+          <!-- 2. Noise Outliers Drawer -->
+          <div class="cluster-dropdown-wrap" id="noiseDropdown">
+            <button class="cluster-dropdown-toggle" id="noiseToggleBtn">
+              <span>▾ Noise Outliers (-1) (<span id="noiseCountBadge">0</span>)</span>
+              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight</span>
+            </button>
+            <div class="cluster-list" id="noiseListContainer">
+              <span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No noise flagged yet.</span>
+            </div>
+          </div>
+
+          <!-- 3. Unvisited Points Drawer -->
+          <div class="cluster-dropdown-wrap" id="unvisitedDropdown">
+            <button class="cluster-dropdown-toggle" id="unvisitedToggleBtn">
+              <span>▾ Unvisited Points (<span id="unvisitedCountBadge">0</span>)</span>
+              <span style="font-size:0.68rem; color:var(--text-dim)">Hover to highlight</span>
+            </button>
+            <div class="cluster-list" id="unvisitedListContainer">
+              <span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">All points processed or empty.</span>
             </div>
           </div>
 
@@ -847,7 +991,8 @@
     const MAX_POINTS = 800;
     const PALETTE = [
       "#34d399", "#fb7185", "#38bdf8", "#fbbf24",
-      "#f43f5e", "#a78bfa", "#2dd4bf", "#f59e0b"
+      "#f43f5e", "#a78bfa", "#2dd4bf", "#f59e0b",
+      "#a3e635", "#f472b6", "#38bdf8", "#fb923c"
     ];
 
     const state = {
@@ -858,8 +1003,9 @@
       speed: 12,
       tool: "point",
       spray: { radiusPx: 28, spread: 0.45, rate: 4 },
-      xMin: 0, xMax: 10,
-      yMin: 0, yMax: 10,
+      offsetX: 0,
+      offsetY: 0,
+      zoom: 1.0,
       dbscanState: "IDLE",
       stepCount: 0,
       currentClusterId: 0,
@@ -869,7 +1015,12 @@
       running: false,
       lossHistory: [],
       stopOnUnvisited: false, stopUnvisitedTarget: null,
-      stopOnStep: false, stopStepTarget: null
+      stopOnStep: false, stopStepTarget: null,
+      hoveredClusterId: null,
+      hoveredNoisePoint: null,
+      hoveredUnvisitedPoint: null,
+      historySnapshots: [],
+      scrubbingIndex: null
     };
 
     const dataCanvas = document.getElementById("dataCanvas");
@@ -878,7 +1029,7 @@
     const lossCtx = lossCanvas.getContext("2d");
 
     const dims = { data: { w: 0, h: 0 }, loss: { w: 0, h: 0 } };
-    const PAD = { l: 42, r: 16, t: 16, b: 30 };
+    const PAD = { l: 20, r: 20, t: 20, b: 20 };
 
     function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
     function randRange(a, b) { return a + Math.random() * (b - a); }
@@ -918,24 +1069,36 @@
       };
     }
 
+    function baseScale() {
+      const a = plotArea();
+      return Math.min(a.w, a.h) / 10.0;
+    }
+
+    function pxPerDataUnit() {
+      return baseScale() * state.zoom;
+    }
+
     function dataToPx(x, y) {
       const a = plotArea();
+      const s = pxPerDataUnit();
+      const cx = a.x0 + a.w / 2;
+      const cy = a.y0 + a.h / 2;
       return {
-        x: a.x0 + ((x - state.xMin) / (state.xMax - state.xMin)) * a.w,
-        y: a.y0 + (1 - (y - state.yMin) / (state.yMax - state.yMin)) * a.h
+        x: cx + state.offsetX + x * s,
+        y: cy + state.offsetY - y * s
       };
     }
 
     function pxToData(px, py) {
       const a = plotArea();
+      const s = pxPerDataUnit();
+      const cx = a.x0 + a.w / 2;
+      const cy = a.y0 + a.h / 2;
       return {
-        x: state.xMin + ((px - a.x0) / a.w) * (state.xMax - state.xMin),
-        y: state.yMin + (1 - (py - a.y0) / a.h) * (state.yMax - state.yMin)
+        x: (px - cx - state.offsetX) / s,
+        y: (cy + state.offsetY - py) / s
       };
     }
-
-    function pxPerDataUnitX() { return plotArea().w / (state.xMax - state.xMin); }
-    function pxPerDataUnitY() { return plotArea().h / (state.yMax - state.yMin); }
 
     function calcDist(p1, p2) {
       if (state.metric === "manhattan") {
@@ -958,52 +1121,79 @@
       const a = plotArea();
       ctx.clearRect(0, 0, w, h);
 
-      // Coordinate Grid
-      ctx.save();
-      ctx.font = "10px 'Fira Code', monospace";
-      ctx.fillStyle = "#825f6e";
-      ctx.strokeStyle = "#1b1016";
-      ctx.lineWidth = 1;
-
-      const steps = 5;
-      const spanX = state.xMax - state.xMin;
-      const spanY = state.yMax - state.yMin;
-
-      for (let i = 0; i <= steps; i++) {
-        const xv = state.xMin + (spanX * i) / steps;
-        const p = dataToPx(xv, state.yMin);
-        ctx.beginPath();
-        ctx.moveTo(p.x, a.y0);
-        ctx.lineTo(p.x, a.y0 + a.h);
-        ctx.stroke();
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.fillText(xv.toFixed(1), p.x, a.y0 + a.h + 7);
-
-        const yv = state.yMin + (spanY * i) / steps;
-        const p2 = dataToPx(state.xMin, yv);
-        ctx.beginPath();
-        ctx.moveTo(a.x0, p2.y);
-        ctx.lineTo(a.x0 + a.w, p2.y);
-        ctx.stroke();
-        ctx.textAlign = "right";
-        ctx.textBaseline = "middle";
-        ctx.fillText(yv.toFixed(1), a.x0 - 7, p2.y);
-      }
-      ctx.strokeStyle = "#331d28";
-      ctx.strokeRect(a.x0, a.y0, a.w, a.h);
-      ctx.restore();
-
       ctx.save();
       ctx.beginPath();
       ctx.rect(a.x0, a.y0, a.w, a.h);
       ctx.clip();
 
-      // Active Epsilon Search Region & Neighbor Links
-      if (state.currentPoint) {
+      const s = pxPerDataUnit();
+
+      let stepGrid = 1.0;
+      const targetPxSpacing = 80;
+      const rawUnitsPerSpacing = targetPxSpacing / s;
+      const magnitude = Math.pow(10, Math.floor(Math.log10(rawUnitsPerSpacing)));
+      const residual = rawUnitsPerSpacing / magnitude;
+
+      if (residual > 5) stepGrid = 10 * magnitude;
+      else if (residual > 2) stepGrid = 5 * magnitude;
+      else if (residual > 1) stepGrid = 2 * magnitude;
+      else stepGrid = 1 * magnitude;
+
+      const topLeft = pxToData(a.x0, a.y0);
+      const bottomRight = pxToData(a.x0 + a.w, a.y0 + a.h);
+      const minX = Math.min(topLeft.x, bottomRight.x) - stepGrid;
+      const maxX = Math.max(topLeft.x, bottomRight.x) + stepGrid;
+      const minY = Math.min(topLeft.y, bottomRight.y) - stepGrid;
+      const maxY = Math.max(topLeft.y, bottomRight.y) + stepGrid;
+
+      // Draw Grid Lines
+      ctx.font = "10px 'Fira Code', monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+
+      const startX = Math.floor(minX / stepGrid) * stepGrid;
+      for (let x = startX; x <= maxX; x += stepGrid) {
+        const p1 = dataToPx(x, minY);
+        const p2 = dataToPx(x, maxY);
+
+        ctx.lineWidth = Math.abs(x) < 1e-5 ? 1.8 : 1;
+        ctx.strokeStyle = Math.abs(x) < 1e-5 ? "#552f43" : "#1b1016";
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+
+        const labelPos = dataToPx(x, 0);
+        const clampedY = clamp(labelPos.y, a.y0 + 6, a.y0 + a.h - 16);
+        ctx.fillStyle = "#825f6e";
+        ctx.fillText(Number(x.toFixed(6)).toString(), labelPos.x, clampedY);
+      }
+
+      const startY = Math.floor(minY / stepGrid) * stepGrid;
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let y = startY; y <= maxY; y += stepGrid) {
+        const p1 = dataToPx(minX, y);
+        const p2 = dataToPx(maxX, y);
+
+        ctx.lineWidth = Math.abs(y) < 1e-5 ? 1.8 : 1;
+        ctx.strokeStyle = Math.abs(y) < 1e-5 ? "#552f43" : "#1b1016";
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+
+        const labelPos = dataToPx(0, y);
+        const clampedX = clamp(labelPos.x, a.x0 + 26, a.x0 + a.w - 8);
+        ctx.fillStyle = "#825f6e";
+        ctx.fillText(Number(y.toFixed(6)).toString(), clampedX, labelPos.y);
+      }
+
+      if (state.currentPoint && state.scrubbingIndex === null) {
         const cp = dataToPx(state.currentPoint.x, state.currentPoint.y);
-        const rx = state.eps * pxPerDataUnitX();
-        const ry = state.eps * pxPerDataUnitY();
+        const rPx = state.eps * s;
 
         ctx.strokeStyle = "rgba(251, 191, 36, 0.4)";
         ctx.lineWidth = 1.2;
@@ -1017,13 +1207,13 @@
 
         ctx.beginPath();
         if (state.metric === "manhattan") {
-          ctx.moveTo(cp.x, cp.y - ry);
-          ctx.lineTo(cp.x + rx, cp.y);
-          ctx.lineTo(cp.x, cp.y + ry);
-          ctx.lineTo(cp.x - rx, cp.y);
+          ctx.moveTo(cp.x, cp.y - rPx);
+          ctx.lineTo(cp.x + rPx, cp.y);
+          ctx.lineTo(cp.x, cp.y + rPx);
+          ctx.lineTo(cp.x - rPx, cp.y);
           ctx.closePath();
         } else {
-          ctx.ellipse(cp.x, cp.y, rx, ry, 0, 0, Math.PI * 2);
+          ctx.arc(cp.x, cp.y, rPx, 0, Math.PI * 2);
         }
         ctx.fillStyle = "rgba(251, 191, 36, 0.08)";
         ctx.fill();
@@ -1038,12 +1228,21 @@
       for (let i = 0; i < state.points.length; i++) {
         const p = state.points[i];
         const pp = dataToPx(p.x, p.y);
-        const radius = p.type === "core" ? 5.5 : 4.4;
+        const isCore = p.type === "core";
+        const isBorder = p.type === "border";
+        const radius = isCore ? 5.5 : 4.4;
+        
+        const isClusterHovered = state.hoveredClusterId !== null && p.cluster === state.hoveredClusterId;
+        const isNoiseHovered = state.hoveredNoisePoint === p;
+        const isUnvisitedHovered = state.hoveredUnvisitedPoint === p;
+        const isHovered = isClusterHovered || isNoiseHovered || isUnvisitedHovered;
 
         ctx.beginPath();
-        ctx.arc(pp.x, pp.y, radius, 0, Math.PI * 2);
+        ctx.arc(pp.x, pp.y, isHovered ? radius + 3 : radius, 0, Math.PI * 2);
 
-        if (p.cluster === null) {
+        if (isHovered) {
+          ctx.fillStyle = "#fbbf24";
+        } else if (p.cluster === null) {
           ctx.fillStyle = "#825f6e";
         } else if (p.cluster === -1) {
           ctx.fillStyle = "#f43f5e";
@@ -1052,13 +1251,17 @@
         }
         ctx.fill();
 
-        if (p.type === "core") {
-          ctx.lineWidth = 1.5;
+        if ((isBorder && !isHovered) || isNoiseHovered || isUnvisitedHovered) {
+          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = "#ffffff";
+          ctx.stroke();
+        } else if (isClusterHovered) {
+          ctx.lineWidth = 2.5;
           ctx.strokeStyle = "#ffffff";
           ctx.stroke();
         }
 
-        if (state.seedQueue.includes(p)) {
+        if (state.seedQueue.includes(p) && state.scrubbingIndex === null) {
           ctx.beginPath();
           ctx.arc(pp.x, pp.y, radius + 3.2, 0, Math.PI * 2);
           ctx.strokeStyle = "rgba(56, 189, 248, 0.75)";
@@ -1066,7 +1269,7 @@
           ctx.stroke();
         }
 
-        if (state.currentPoint === p) {
+        if (state.currentPoint === p && state.scrubbingIndex === null) {
           ctx.beginPath();
           ctx.arc(pp.x, pp.y, radius + 4.5, 0, Math.PI * 2);
           ctx.strokeStyle = "#fbbf24";
@@ -1075,13 +1278,11 @@
         }
       }
 
-      // Interactive Tool Outline
-      if (brushCursor.visible && state.tool !== "pan") {
+      if (brushCursor.visible && state.tool !== "pan" && state.scrubbingIndex === null) {
         ctx.beginPath();
         if (state.tool === "point") {
-          const rx = state.eps * pxPerDataUnitX();
-          const ry = state.eps * pxPerDataUnitY();
-          ctx.ellipse(brushCursor.px, brushCursor.py, rx, ry, 0, 0, Math.PI * 2);
+          const rPx = state.eps * s;
+          ctx.arc(brushCursor.px, brushCursor.py, rPx, 0, Math.PI * 2);
           ctx.strokeStyle = "rgba(244, 63, 94, 0.45)";
         } else {
           ctx.arc(brushCursor.px, brushCursor.py, state.spray.radiusPx, 0, Math.PI * 2);
@@ -1093,6 +1294,12 @@
         ctx.setLineDash([]);
       }
 
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = "#331d28";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(a.x0, a.y0, a.w, a.h);
       ctx.restore();
     }
 
@@ -1172,6 +1379,30 @@
       lossCtx.arc(lastX, lastY, 4.5, 0, Math.PI * 2);
       lossCtx.fill();
 
+      if (state.scrubbingIndex !== null) {
+        const scrubStep = state.scrubbingIndex;
+        const scrubX = pad.l + (scrubStep / maxSteps) * pw;
+        const scrubVal = state.lossHistory[scrubStep] || 0;
+        const scrubY = pad.t + ph - (scrubVal / maxVal) * ph;
+
+        lossCtx.beginPath();
+        lossCtx.strokeStyle = "#fbbf24";
+        lossCtx.lineWidth = 1.5;
+        lossCtx.setLineDash([3, 3]);
+        lossCtx.moveTo(scrubX, pad.t);
+        lossCtx.lineTo(scrubX, pad.t + ph);
+        lossCtx.stroke();
+        lossCtx.setLineDash([]);
+
+        lossCtx.beginPath();
+        lossCtx.fillStyle = "#fbbf24";
+        lossCtx.arc(scrubX, scrubY, 5, 0, Math.PI * 2);
+        lossCtx.fill();
+        lossCtx.lineWidth = 2;
+        lossCtx.strokeStyle = "#fff";
+        lossCtx.stroke();
+      }
+
       lossCtx.fillStyle = "#c49ba9";
       lossCtx.textAlign = "left";
       lossCtx.textBaseline = "top";
@@ -1181,10 +1412,22 @@
     }
 
     // ==========================================
-    // 3. DBSCAN STATE MACHINE
+    // 3. DBSCAN STATE MACHINE & TIMELINE SNAPSHOTS
     // ==========================================
+    function recordSnapshot() {
+      const pointStates = state.points.map(p => ({ cluster: p.cluster, type: p.type }));
+      state.historySnapshots.push({
+        stepCount: state.stepCount,
+        dbscanState: state.dbscanState,
+        currentClusterId: state.currentClusterId,
+        pointStates: pointStates
+      });
+    }
+
     function resetModel() {
       setRunning(false);
+      exitTimelineScrubber();
+      state.historySnapshots = [];
       document.getElementById("stopStatus").textContent = "";
       state.points.forEach(p => {
         p.cluster = null;
@@ -1198,6 +1441,8 @@
       state.currentPoint = null;
       state.currentNeighbors = [];
       state.lossHistory = [state.points.length];
+
+      recordSnapshot();
 
       document.getElementById("mathDecision").innerHTML = `<span style="color:var(--text-muted)">Idle</span>`;
       document.getElementById("activeCoordBadge").textContent = "p = none";
@@ -1228,6 +1473,8 @@
           updateLogPanel(`✨ <b>Convergence complete!</b> Partitioned dataset into <b>${state.currentClusterId}</b> density clusters.`);
           setRunning(false);
           recordLossAndDraw();
+          recordSnapshot();
+          showTimelineScrubber();
           return;
         }
 
@@ -1267,6 +1514,7 @@
           document.getElementById("mathDecision").innerHTML = `<span style="color:var(--accent-amber)">Cluster #${finishedId} Closed</span>`;
           updateLogPanel(`BFS queue exhausted for <b>Cluster #${finishedId}</b>. Returning to IDLE scan for next unvisited point.`);
           recordLossAndDraw();
+          recordSnapshot();
           return;
         }
 
@@ -1309,6 +1557,7 @@
       }
 
       recordLossAndDraw();
+      recordSnapshot();
     }
 
     function recordLossAndDraw() {
@@ -1326,25 +1575,147 @@
       const unvisited = state.points.filter(p => p.type === "unvisited").length;
       const core = state.points.filter(p => p.type === "core").length;
       const border = state.points.filter(p => p.type === "border").length;
-      const noise = state.points.filter(p => p.type === "noise").length;
-      const clusters = new Set(state.points.filter(p => p.cluster !== null && p.cluster >= 0).map(p => p.cluster)).size;
+      const noisePoints = state.points.filter(p => p.type === "noise" || p.cluster === -1);
+      const clusterIds = Array.from(new Set(state.points.filter(p => p.cluster !== null && p.cluster >= 0).map(p => p.cluster))).sort((a,b)=>a-b);
+      const unvisitedPoints = state.points.filter(p => p.type === "unvisited");
 
       document.getElementById("pointCountLabel").textContent = `${total} points`;
-      document.getElementById("stepCounterLabel").textContent = `Step ${state.stepCount}`;
+      document.getElementById("stepCounterLabel").textContent = state.scrubbingIndex !== null ? `Scrubbing Step ${state.scrubbingIndex}` : `Step ${state.stepCount}`;
       document.getElementById("stateBadge").textContent = `STATE: ${state.dbscanState}`;
       document.getElementById("mathEps").textContent = state.eps.toFixed(2);
       document.getElementById("mathMinPts").textContent = state.minPts;
 
-      document.getElementById("statClusters").textContent = clusters;
+      document.getElementById("statClusters").textContent = clusterIds.length;
       document.getElementById("statClustered").textContent = `${core} / ${border}`;
-      document.getElementById("statNoise").textContent = noise;
+      document.getElementById("statNoise").textContent = noisePoints.length;
       document.getElementById("statUnvisited").textContent = unvisited;
 
-      // Update Stacked Distribution Bar
+      document.getElementById("clusterCountBadge").textContent = clusterIds.length;
+      document.getElementById("noiseCountBadge").textContent = noisePoints.length;
+      document.getElementById("unvisitedCountBadge").textContent = unvisitedPoints.length;
+
+      const legendContainer = document.getElementById("dynamicLegend");
+      let legendHTML = `<span class="legend-item"><i class="swatch" style="background:#825f6e"></i>Unvisited</span>`;
+
+      if (clusterIds.length === 0) {
+        legendHTML += `<span class="legend-item"><i class="swatch" style="background:var(--accent-emerald)"></i>Core (#0)</span>`;
+        legendHTML += `<span class="legend-item"><i class="swatch" style="background:var(--accent-sky); border:1.5px solid #fff"></i>Border (#0)</span>`;
+      } else {
+        clusterIds.forEach(id => {
+          const col = PALETTE[id % PALETTE.length];
+          legendHTML += `<span class="legend-item"><i class="swatch" style="background:${col}"></i>Core (#${id})</span>`;
+        });
+        clusterIds.forEach(id => {
+          const col = PALETTE[id % PALETTE.length];
+          legendHTML += `<span class="legend-item"><i class="swatch" style="background:${col}; border:1.5px solid #fff"></i>Border (#${id})</span>`;
+        });
+      }
+
+      legendHTML += `<span class="legend-item"><i class="swatch" style="background:var(--accent-red)"></i>Noise (-1)</span>`;
+      legendContainer.innerHTML = legendHTML;
+
+      const clusterListContainer = document.getElementById("clusterListContainer");
+      if (clusterIds.length === 0) {
+        clusterListContainer.innerHTML = `<span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No clusters discovered yet.</span>`;
+      } else {
+        let listHTML = "";
+        clusterIds.forEach(id => {
+          const col = PALETTE[id % PALETTE.length];
+          const cCount = state.points.filter(p => p.cluster === id).length;
+          const cCores = state.points.filter(p => p.cluster === id && p.type === "core").length;
+          const cBorders = state.points.filter(p => p.cluster === id && p.type === "border").length;
+
+          listHTML += `
+            <div class="cluster-row" data-cluster-id="${id}">
+              <span class="c-badge">
+                <i class="swatch" style="background:${col}"></i>
+                <b>Cluster #${id}</b>
+              </span>
+              <span class="c-stats">${cCount} pts (${cCores} Core, ${cBorders} Border)</span>
+            </div>
+          `;
+        });
+        clusterListContainer.innerHTML = listHTML;
+
+        clusterListContainer.querySelectorAll(".cluster-row").forEach(row => {
+          const cid = Number(row.dataset.clusterId);
+          row.addEventListener("mouseenter", () => {
+            state.hoveredClusterId = cid;
+            drawDataCanvas();
+          });
+          row.addEventListener("mouseleave", () => {
+            state.hoveredClusterId = null;
+            drawDataCanvas();
+          });
+        });
+      }
+
+      const noiseListContainer = document.getElementById("noiseListContainer");
+      if (noisePoints.length === 0) {
+        noiseListContainer.innerHTML = `<span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">No noise flagged yet.</span>`;
+      } else {
+        let noiseHTML = "";
+        noisePoints.forEach((p, idx) => {
+          noiseHTML += `
+            <div class="point-item-row" data-noise-idx="${idx}">
+              <span class="c-badge">
+                <i class="swatch" style="background:var(--accent-red)"></i>
+                <b>Noise Point #${idx + 1}</b>
+              </span>
+              <span class="c-stats">(${p.x.toFixed(2)}, ${p.y.toFixed(2)})</span>
+            </div>
+          `;
+        });
+        noiseListContainer.innerHTML = noiseHTML;
+
+        noiseListContainer.querySelectorAll(".point-item-row").forEach((row, idx) => {
+          const pt = noisePoints[idx];
+          row.addEventListener("mouseenter", () => {
+            state.hoveredNoisePoint = pt;
+            drawDataCanvas();
+          });
+          row.addEventListener("mouseleave", () => {
+            state.hoveredNoisePoint = null;
+            drawDataCanvas();
+          });
+        });
+      }
+
+      const unvisitedListContainer = document.getElementById("unvisitedListContainer");
+      if (unvisitedPoints.length === 0) {
+        unvisitedListContainer.innerHTML = `<span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-dim); padding:8px;">All points processed or empty.</span>`;
+      } else {
+        let unvHTML = "";
+        unvisitedPoints.forEach((p, idx) => {
+          unvHTML += `
+            <div class="point-item-row" data-unv-idx="${idx}">
+              <span class="c-badge">
+                <i class="swatch" style="background:#825f6e"></i>
+                <b>Unvisited #${idx + 1}</b>
+              </span>
+              <span class="c-stats">(${p.x.toFixed(2)}, ${p.y.toFixed(2)})</span>
+            </div>
+          `;
+        });
+        unvisitedListContainer.innerHTML = unvHTML;
+
+        unvisitedListContainer.querySelectorAll(".point-item-row").forEach((row, idx) => {
+          const pt = unvisitedPoints[idx];
+          row.addEventListener("mouseenter", () => {
+            state.hoveredUnvisitedPoint = pt;
+            drawDataCanvas();
+          });
+          row.addEventListener("mouseleave", () => {
+            state.hoveredUnvisitedPoint = null;
+            drawDataCanvas();
+          });
+        });
+      }
+
       if (total > 0) {
         const pCore = (core / total) * 100;
         const pBorder = (border / total) * 100;
-        const pNoise = (noise / total) * 100;
+        const pNoise = (noisePoints.length / total) * 100;
         const pUnv = (unvisited / total) * 100;
         document.getElementById("segCore").style.width = pCore + "%";
         document.getElementById("segBorder").style.width = pBorder + "%";
@@ -1359,10 +1730,9 @@
         document.getElementById("distSummaryText").textContent = "0% Processed";
       }
 
-      // Render Queue Chips
       const queuePills = document.getElementById("queuePills");
       document.getElementById("queueCountLabel").textContent = `${state.seedQueue.length} queued`;
-      if (state.seedQueue.length === 0) {
+      if (state.seedQueue.length === 0 || state.scrubbingIndex !== null) {
         queuePills.innerHTML = `<span style="color:var(--text-dim);">No active cluster expansion.</span>`;
       } else {
         const chips = state.seedQueue.slice(0, 16).map((p, idx) =>
@@ -1379,12 +1749,99 @@
       updateReadouts();
     }
 
+    document.getElementById("clusterToggleBtn").addEventListener("click", () => {
+      document.getElementById("clusterDropdown").classList.toggle("open");
+    });
+    document.getElementById("noiseToggleBtn").addEventListener("click", () => {
+      document.getElementById("noiseDropdown").classList.toggle("open");
+    });
+    document.getElementById("unvisitedToggleBtn").addEventListener("click", () => {
+      document.getElementById("unvisitedDropdown").classList.toggle("open");
+    });
+
     // ==========================================
-    // 4. INTERACTIVE CANVAS & HUD CONTROLS
+    // 4. TIMELINE SCRUBBER LOGIC
+    // ==========================================
+    const timelineBar = document.getElementById("timelineBar");
+    const timelineSlider = document.getElementById("timelineSlider");
+    const timelineStepLabel = document.getElementById("timelineStepLabel");
+    let timelinePlayTimer = null;
+
+    function showTimelineScrubber() {
+      if (state.historySnapshots.length === 0) return;
+      timelineBar.classList.add("visible");
+      timelineSlider.min = 0;
+      timelineSlider.max = state.historySnapshots.length - 1;
+      timelineSlider.value = state.historySnapshots.length - 1;
+      scrubToSnapshot(state.historySnapshots.length - 1);
+    }
+
+    function exitTimelineScrubber() {
+      stopTimelinePlay();
+      timelineBar.classList.remove("visible");
+      state.scrubbingIndex = null;
+      drawAll();
+    }
+
+    function scrubToSnapshot(idx) {
+      idx = clamp(idx, 0, state.historySnapshots.length - 1);
+      state.scrubbingIndex = idx;
+      const snap = state.historySnapshots[idx];
+      
+      for (let i = 0; i < state.points.length; i++) {
+        if (snap.pointStates[i]) {
+          state.points[i].cluster = snap.pointStates[i].cluster;
+          state.points[i].type = snap.pointStates[i].type;
+        }
+      }
+
+      timelineSlider.value = idx;
+      timelineStepLabel.textContent = `Step ${snap.stepCount} / ${state.historySnapshots.length - 1}`;
+      drawAll();
+    }
+
+    timelineSlider.addEventListener("input", e => {
+      stopTimelinePlay();
+      const idx = parseInt(e.target.value, 10);
+      scrubToSnapshot(idx);
+    });
+
+    document.getElementById("btnTimelineExit").addEventListener("click", exitTimelineScrubber);
+
+    const btnTimelinePlay = document.getElementById("btnTimelinePlay");
+    function stopTimelinePlay() {
+      if (timelinePlayTimer) {
+        clearInterval(timelinePlayTimer);
+        timelinePlayTimer = null;
+        btnTimelinePlay.textContent = "▶ Play";
+      }
+    }
+
+    btnTimelinePlay.addEventListener("click", () => {
+      if (timelinePlayTimer) {
+        stopTimelinePlay();
+      } else {
+        if (state.scrubbingIndex >= state.historySnapshots.length - 1) {
+          scrubToSnapshot(0);
+        }
+        btnTimelinePlay.textContent = "⏸ Pause";
+        timelinePlayTimer = setInterval(() => {
+          let nextIdx = state.scrubbingIndex + 1;
+          if (nextIdx >= state.historySnapshots.length) {
+            stopTimelinePlay();
+            return;
+          }
+          scrubToSnapshot(nextIdx);
+        }, 1000 / state.speed);
+      }
+    });
+
+    // ==========================================
+    // 5. INTERACTIVE CANVAS & HUD CONTROLS
     // ==========================================
     let isPointerDown = false;
     let isPanning = false;
-    let panAnchorData = null, panSpanX = 0, panSpanY = 0;
+    let panAnchor = null;
     let sprayTimer = null;
     let currentSprayBatch = [];
     let sprayUndoStack = [];
@@ -1397,39 +1854,37 @@
 
     function addSinglePoint(dataX, dataY) {
       if (state.points.length >= MAX_POINTS) return;
-      const pt = {
-        x: clamp(dataX, state.xMin, state.xMax),
-        y: clamp(dataY, state.yMin, state.yMax),
-        cluster: null,
-        type: "unvisited"
-      };
+      const pt = { x: dataX, y: dataY, cluster: null, type: "unvisited" };
       state.points.push(pt);
       currentSprayBatch.push(pt);
+      exitTimelineScrubber();
       syncIdleChart();
     }
 
     function sprayAt(dataX, dataY) {
       const cfg = state.spray;
-      const radiusData = cfg.radiusPx / pxPerDataUnitX();
+      const radiusData = cfg.radiusPx / pxPerDataUnit();
       for (let i = 0; i < cfg.rate; i++) {
         if (state.points.length >= MAX_POINTS) break;
         const g = gaussianPair();
         const std = radiusData * (0.15 + cfg.spread * 0.85);
         const pt = {
-          x: clamp(dataX + g[0] * std, state.xMin, state.xMax),
-          y: clamp(dataY + g[1] * std, state.yMin, state.yMax),
+          x: dataX + g[0] * std,
+          y: dataY + g[1] * std,
           cluster: null,
           type: "unvisited"
         };
         state.points.push(pt);
         currentSprayBatch.push(pt);
       }
+      exitTimelineScrubber();
       syncIdleChart();
     }
 
     function eraseAt(dataX, dataY) {
-      const radiusData = state.spray.radiusPx / pxPerDataUnitX();
+      const radiusData = state.spray.radiusPx / pxPerDataUnit();
       state.points = state.points.filter(p => Math.hypot(p.x - dataX, p.y - dataY) > radiusData);
+      exitTimelineScrubber();
       syncIdleChart();
     }
 
@@ -1461,9 +1916,7 @@
 
       if (state.tool === "pan" || e.shiftKey) {
         isPanning = true;
-        panAnchorData = pxToData(pos.x, pos.y);
-        panSpanX = state.xMax - state.xMin;
-        panSpanY = state.yMax - state.yMin;
+        panAnchor = { x: pos.x, y: pos.y, ox: state.offsetX, oy: state.offsetY };
         dataCanvas.style.cursor = "grabbing";
       } else if (state.tool === "point") {
         currentSprayBatch = [];
@@ -1493,14 +1946,9 @@
       const d = pxToData(pos.x, pos.y);
       document.getElementById("cursorCoord").textContent = `x: ${d.x.toFixed(2)}, y: ${d.y.toFixed(2)}`;
 
-      if (isPanning && panAnchorData) {
-        const a = plotArea();
-        const fracX = (pos.x - a.x0) / a.w;
-        const fracY = (pos.y - a.y0) / a.h;
-        state.xMin = panAnchorData.x - fracX * panSpanX;
-        state.xMax = state.xMin + panSpanX;
-        state.yMin = panAnchorData.y - (1 - fracY) * panSpanY;
-        state.yMax = state.yMin + panSpanY;
+      if (isPanning && panAnchor) {
+        state.offsetX = panAnchor.ox + (pos.x - panAnchor.x);
+        state.offsetY = panAnchor.oy + (pos.y - panAnchor.y);
       } else if (isPointerDown && state.tool === "erase") {
         eraseAt(d.x, d.y);
       }
@@ -1519,7 +1967,7 @@
       currentSprayBatch = [];
       isPointerDown = false;
       isPanning = false;
-      panAnchorData = null;
+      panAnchor = null;
       if (sprayTimer) { clearInterval(sprayTimer); sprayTimer = null; }
       updateToolCursor();
       drawDataCanvas();
@@ -1532,15 +1980,12 @@
       stopCanvasPointer(null);
     });
 
-    function zoomByFactor(factor, centerX, centerY) {
-      const spanX = clamp((state.xMax - state.xMin) * factor, 1.5, 40);
-      const spanY = clamp((state.yMax - state.yMin) * factor, 1.5, 40);
-      const fracX = (centerX - state.xMin) / (state.xMax - state.xMin);
-      const fracY = (centerY - state.yMin) / (state.yMax - state.yMin);
-      state.xMin = centerX - fracX * spanX;
-      state.xMax = state.xMin + spanX;
-      state.yMin = centerY - fracY * spanY;
-      state.yMax = state.yMin + spanY;
+    function zoomAtPoint(factor, screenX, screenY) {
+      const beforeD = pxToData(screenX, screenY);
+      state.zoom = Math.max(1e-6, state.zoom * factor);
+      const afterPx = dataToPx(beforeD.x, beforeD.y);
+      state.offsetX += (screenX - afterPx.x);
+      state.offsetY += (screenY - afterPx.y);
       updateEpsLabel();
       drawDataCanvas();
     }
@@ -1548,102 +1993,174 @@
     dataCanvas.addEventListener("wheel", e => {
       e.preventDefault();
       const pos = getLocalPos(dataCanvas, e);
-      const d = pxToData(pos.x, pos.y);
-      zoomByFactor(e.deltaY > 0 ? 1.12 : 1 / 1.12, d.x, d.y);
+      zoomAtPoint(e.deltaY > 0 ? 1 / 1.15 : 1.15, pos.x, pos.y);
     }, { passive: false });
 
     document.getElementById("btnZoomIn").addEventListener("click", () => {
-      zoomByFactor(0.8, (state.xMin + state.xMax) / 2, (state.yMin + state.yMax) / 2);
+      const a = plotArea();
+      zoomAtPoint(1.25, a.x0 + a.w / 2, a.y0 + a.h / 2);
     });
     document.getElementById("btnZoomOut").addEventListener("click", () => {
-      zoomByFactor(1.25, (state.xMin + state.xMax) / 2, (state.yMin + state.yMax) / 2);
+      const a = plotArea();
+      zoomAtPoint(1 / 1.25, a.x0 + a.w / 2, a.y0 + a.h / 2);
     });
     document.getElementById("btnResetView").addEventListener("click", () => {
-      state.xMin = 0; state.xMax = 10; state.yMin = 0; state.yMax = 10;
+      state.offsetX = 0;
+      state.offsetY = 0;
+      state.zoom = 1.0;
+      updateEpsLabel();
+      drawDataCanvas();
+    });
+
+    document.getElementById("btnCenterPoints").addEventListener("click", () => {
+      if (state.points.length === 0) {
+        state.offsetX = 0; state.offsetY = 0; state.zoom = 1.0;
+      } else {
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        state.points.forEach(p => {
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        });
+
+        const spanX = Math.max(1.0, maxX - minX);
+        const spanY = Math.max(1.0, maxY - minY);
+        const avgX = (minX + maxX) / 2;
+        const avgY = (minY + maxY) / 2;
+
+        const a = plotArea();
+        const bScale = baseScale();
+
+        const zoomX = (a.w * 0.75) / (spanX * bScale);
+        const zoomY = (a.h * 0.75) / (spanY * bScale);
+        state.zoom = Math.max(0.001, Math.min(zoomX, zoomY));
+
+        state.offsetX = 0;
+        state.offsetY = 0;
+        const targetPx = dataToPx(avgX, avgY);
+        state.offsetX += (a.x0 + a.w / 2) - targetPx.x;
+        state.offsetY += (a.y0 + a.h / 2) - targetPx.y;
+      }
       updateEpsLabel();
       drawDataCanvas();
     });
 
     // ==========================================
-    // 5. PRESET GEOMETRY GENERATORS
+    // 6. PRESETS & MODEL/SETTINGS RESET
     // ==========================================
     function generateDataset(pattern) {
       state.points = [];
       sprayUndoStack = [];
       updateUndoButton();
-      state.xMin = 0; state.xMax = 10; state.yMin = 0; state.yMax = 10;
+      exitTimelineScrubber();
+      state.offsetX = 0; state.offsetY = 0; state.zoom = 1.0;
 
       const addPt = (x, y) => {
-        if (x >= 0.2 && x <= 9.8 && y >= 0.2 && y <= 9.8) {
-          state.points.push({ x, y, cluster: null, type: "unvisited" });
-        }
+        state.points.push({ x, y, cluster: null, type: "unvisited" });
       };
 
       if (pattern === "blobs") {
-        [[2.6, 7.2], [7.3, 6.8], [5.0, 2.7]].forEach(([cx, cy]) => {
+        [[-2.4, 2.2], [2.3, 1.8], [0.0, -2.3]].forEach(([cx, cy]) => {
           for (let i = 0; i < 42; i++) {
             const g = gaussianPair();
             addPt(cx + g[0] * 0.48, cy + g[1] * 0.48);
           }
         });
-        for (let i = 0; i < 18; i++) addPt(randRange(0.4, 9.6), randRange(0.4, 9.6));
+        for (let i = 0; i < 18; i++) addPt(randRange(-4, 4), randRange(-4, 4));
       } else if (pattern === "rings") {
         for (let i = 0; i < 35; i++) {
           const g = gaussianPair();
-          addPt(5 + g[0] * 0.35, 5 + g[1] * 0.35);
+          addPt(g[0] * 0.35, g[1] * 0.35);
         }
         for (let i = 0; i < 110; i++) {
           const angle = (i / 110) * Math.PI * 2 + randRange(-0.03, 0.03);
           const r = 3.1 + randRange(-0.22, 0.22);
-          addPt(5 + Math.cos(angle) * r, 5 + Math.sin(angle) * r);
+          addPt(Math.cos(angle) * r, Math.sin(angle) * r);
         }
-        for (let i = 0; i < 12; i++) addPt(randRange(0.4, 9.6), randRange(0.4, 9.6));
+        for (let i = 0; i < 12; i++) addPt(randRange(-4, 4), randRange(-4, 4));
       } else if (pattern === "moons") {
         for (let i = 0; i < 70; i++) {
           const a = (i / 70) * Math.PI;
-          addPt(2.2 + Math.cos(a) * 2.2 + randRange(-0.2, 0.2), 5.2 + Math.sin(a) * 2.0 + randRange(-0.2, 0.2));
+          addPt(-2.8 + Math.cos(a) * 2.2 + randRange(-0.2, 0.2), 1.2 + Math.sin(a) * 2.0 + randRange(-0.2, 0.2));
         }
         for (let i = 0; i < 70; i++) {
           const a = (i / 70) * Math.PI;
-          addPt(5.5 + Math.cos(a) * 2.2 + randRange(-0.2, 0.2), 4.6 - Math.sin(a) * 2.0 + randRange(-0.2, 0.2));
+          addPt(0.5 + Math.cos(a) * 2.2 + randRange(-0.2, 0.2), -0.6 - Math.sin(a) * 2.0 + randRange(-0.2, 0.2));
         }
-        for (let i = 0; i < 12; i++) addPt(randRange(0.4, 9.6), randRange(0.4, 9.6));
+        for (let i = 0; i < 12; i++) addPt(randRange(-4, 4), randRange(-4, 4));
       } else if (pattern === "river") {
         for (let i = 0; i < 125; i++) {
-          const x = 1.0 + (i / 125) * 8.0;
-          const y = 5.0 + Math.sin(x * 1.1) * 2.6 + randRange(-0.28, 0.28);
+          const x = -4.0 + (i / 125) * 8.0;
+          const y = Math.sin(x * 1.1) * 2.6 + randRange(-0.28, 0.28);
           addPt(x + randRange(-0.15, 0.15), y);
         }
-        for (let i = 0; i < 16; i++) addPt(randRange(0.4, 9.6), randRange(0.4, 9.6));
+        for (let i = 0; i < 16; i++) addPt(randRange(-4, 4), randRange(-4, 4));
       } else if (pattern === "varying") {
         for (let i = 0; i < 55; i++) {
           const g = gaussianPair();
-          addPt(2.6 + g[0] * 0.25, 5.2 + g[1] * 0.25);
+          addPt(-2.4 + g[0] * 0.25, 1.2 + g[1] * 0.25);
         }
         for (let i = 0; i < 50; i++) {
           const g = gaussianPair();
-          addPt(7.0 + g[0] * 1.15, 5.0 + g[1] * 1.15);
+          addPt(2.0 + g[0] * 1.15, g[1] * 1.15);
         }
       } else if (pattern === "bridge") {
-        [[2.6, 5.0], [7.4, 5.0]].forEach(([cx, cy]) => {
+        [[-2.4, 0.0], [2.4, 0.0]].forEach(([cx, cy]) => {
           for (let i = 0; i < 48; i++) {
             const g = gaussianPair();
             addPt(cx + g[0] * 0.45, cy + g[1] * 0.45);
           }
         });
         for (let i = 0; i < 9; i++) {
-          addPt(3.4 + i * 0.4, 5.0 + randRange(-0.08, 0.08));
+          addPt(-1.6 + i * 0.4, randRange(-0.08, 0.08));
         }
       }
 
       resetModel();
     }
 
+    document.getElementById("btn-reset-model").addEventListener("click", resetModel);
+
+    // RESTORE ONLY DEFAULT SETTINGS WITHOUT RESETTING THE MODEL RUN
+    document.getElementById("btn-reset-settings").addEventListener("click", () => {
+      state.eps = 0.85;
+      document.getElementById("paramEps").value = 85;
+
+      state.minPts = 4;
+      document.getElementById("paramMinPts").value = 4;
+      document.getElementById("valMinPts").textContent = "4 pts";
+
+      state.speed = 12;
+      document.getElementById("paramSpeed").value = 12;
+      document.getElementById("valSpeed").textContent = "12 step/s";
+
+      state.metric = "euclidean";
+      document.getElementById("metricGroup").querySelectorAll(".seg-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.metric === "euclidean");
+      });
+
+      state.stopOnUnvisited = false;
+      document.getElementById("chkStopUnvisited").checked = false;
+      document.getElementById("stopUnvisitedInput").value = "";
+      document.getElementById("stopUnvisitedInput").disabled = true;
+      state.stopUnvisitedTarget = null;
+
+      state.stopOnStep = false;
+      document.getElementById("chkStopStep").checked = false;
+      document.getElementById("stopStepInput").value = "";
+      document.getElementById("stopStepInput").disabled = true;
+      state.stopStepTarget = null;
+
+      updateEpsLabel();
+      drawAll(); // Redraws current state with default settings
+    });
+
     // ==========================================
-    // 6. UI LISTENERS & ANIMATION LOOP
+    // 7. UI LISTENERS & ANIMATION LOOP
     // ==========================================
     function updateEpsLabel() {
-      const px = Math.round(state.eps * pxPerDataUnitX());
+      const px = Math.round(state.eps * pxPerDataUnit());
       document.getElementById("valEps").textContent = `${state.eps.toFixed(2)} (${px}px)`;
     }
 
@@ -1661,7 +2178,8 @@
         document.getElementById("metricGroup").querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         state.metric = btn.dataset.metric;
-        resetModel();
+        // Updating metric geometry does not reset model points, but updates math labels & redraws
+        drawAll();
       });
     });
 
@@ -1681,12 +2199,12 @@
     document.getElementById("paramEps").addEventListener("input", e => {
       state.eps = Number(e.target.value) / 100;
       updateEpsLabel();
-      resetModel();
+      drawAll();
     });
     document.getElementById("paramMinPts").addEventListener("input", e => {
       state.minPts = Number(e.target.value);
       document.getElementById("valMinPts").textContent = state.minPts + " pts";
-      resetModel();
+      drawAll();
     });
     document.getElementById("paramSpeed").addEventListener("input", e => {
       state.speed = Number(e.target.value);
@@ -1746,29 +2264,30 @@
       state.points = [];
       sprayUndoStack = [];
       updateUndoButton();
+      exitTimelineScrubber();
       resetModel();
     });
 
     const btnPlay = document.getElementById("btn-play");
     function setRunning(on) {
       state.running = on && state.points.length > 0;
-      btnPlay.textContent = state.running ? "⏸ Pause Execution" : "▶ Play to Convergence";
+      btnPlay.textContent = state.running ? "⏸ Pause" : "▶ Play";
       btnPlay.classList.toggle("paused", state.running);
     }
 
     document.getElementById("btn-step").addEventListener("click", () => {
       setRunning(false);
+      exitTimelineScrubber();
       if (state.dbscanState === "CONVERGED") resetModel();
       stepDBSCAN();
     });
 
     btnPlay.addEventListener("click", () => {
       document.getElementById("stopStatus").textContent = "";
+      exitTimelineScrubber();
       if (state.dbscanState === "CONVERGED") resetModel();
       setRunning(!state.running);
     });
-
-    document.getElementById("btn-reset").addEventListener("click", resetModel);
 
     document.querySelectorAll(".collapse-btn").forEach(btn => {
       btn.addEventListener("click", () => {
