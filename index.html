@@ -1,584 +1,1818 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Algorithm Visualizer | CEi KMITL</title>
-  <style>
-    /* Reset & Base Dark Theme */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DBSCAN Spatial Studio | CEi KMITL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-base: #09090d;
+    --bg-surface: #12121a;
+    --bg-elevated: #181824;
+    --bg-glass: rgba(24, 24, 36, 0.75);
+    --border-subtle: #232334;
+    --border-focus: #3b3b54;
+    --text-main: #f4f4f8;
+    --text-muted: #9494b8;
+    --text-dim: #5e5e80;
+    --accent-violet: #8b5cf6;
+    --accent-indigo: #6366f1;
+    --accent-emerald: #10b981;
+    --accent-sky: #38bdf8;
+    --accent-coral: #f43f5e;
+    --accent-amber: #f59e0b;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --radius-lg: 14px;
+    --radius-md: 9px;
+    --radius-sm: 6px;
+  }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #0f1117;
-      color: #e2e8f0;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden; /* App view locked to viewport */
-    }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* Header */
-    header {
-      background-color: #1a1d24;
-      padding: 12px 24px;
-      border-bottom: 1px solid #2d3139;
-      flex-shrink: 0;
-    }
+  body {
+    background-color: var(--bg-base);
+    background-image: 
+      radial-gradient(circle at 10% 15%, rgba(139, 92, 246, 0.08), transparent 40%),
+      radial-gradient(circle at 90% 85%, rgba(16, 185, 129, 0.06), transparent 40%);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Locked viewport for independent column scrolling */
+  }
 
-    header h1 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #ffffff;
-    }
+  /* Sleek Scrollbars */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-focus); }
 
-    header p {
-      font-size: 0.85rem;
-      color: #94a3b8;
-      margin-top: 2px;
-    }
+  /* Header Bar */
+  header.studio-header {
+    background: rgba(18, 18, 26, 0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .title-cluster {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent-violet), var(--accent-indigo));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 15px;
+    color: #fff;
+  }
+  .title-text h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-main);
+  }
+  .title-text p {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+  .status-pill {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    padding: 5px 12px;
+    border-radius: 99px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-emerald);
+    box-shadow: 0 0 8px var(--accent-emerald);
+  }
 
-    /* Main Split Layout */
-    main {
-      flex: 1;
-      display: flex;
-      overflow: hidden; /* Prevents whole-page scrolling */
-    }
+  /* Two-Column Workspace */
+  main.workspace {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1.12fr 0.88fr;
+    overflow: hidden;
+  }
+  .viewport-col {
+    overflow-y: auto;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .col-left {
+    border-right: 1px solid var(--border-subtle);
+  }
 
-    /* Independent Scrollable Columns */
-    .column {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
+  @media (max-width: 960px) {
+    body { height: auto; overflow: auto; }
+    main.workspace { grid-template-columns: 1fr; overflow: visible; }
+    .viewport-col { overflow-y: visible; }
+    .col-left { border-right: none; border-bottom: 1px solid var(--border-subtle); }
+  }
 
-    .column-left {
-      border-right: 1px solid #2d3139;
-    }
+  /* Card Modules */
+  .module-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    box-shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .module-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 11px;
+  }
+  .module-title-group {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .module-tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 7px;
+    border-radius: 5px;
+    background: rgba(139, 92, 246, 0.14);
+    color: #c4b5fd;
+    border: 1px solid rgba(139, 92, 246, 0.28);
+    font-weight: 600;
+  }
+  .module-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+  .module-meta {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .collapse-btn {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    border-radius: 6px;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .collapse-btn:hover { color: var(--text-main); border-color: var(--border-focus); }
+  .module-card.minimized .module-content { display: none; }
+  .module-card.minimized .module-header { border-bottom: none; padding-bottom: 0; }
 
-    /* Panel Card Structure */
-    .panel {
-      background-color: #161920;
-      border: 1px solid #2d3139;
-      border-radius: 8px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+  .module-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
 
-    .panel-title {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #38bdf8;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
+  /* Canvas Stage & HUD */
+  .canvas-stage {
+    position: relative;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+    background: #07070b;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    touch-action: none;
+  }
+  #dataCanvas { height: 360px; cursor: crosshair; }
+  #lossCanvas { height: 210px; }
 
-    /* Canvas / Visualization Area Stubs */
-    .canvas-container {
-      background-color: #0b0d11;
-      border: 1px solid #262a33;
-      border-radius: 6px;
-      min-height: 320px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #64748b;
-    }
+  .canvas-hud {
+    position: absolute;
+    top: 10px;
+    left: 52px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+  }
+  .hud-pill {
+    pointer-events: auto;
+    background: rgba(14, 14, 22, 0.82);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    padding: 4px 9px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hud-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .hud-btn:hover { background: var(--border-subtle); color: var(--accent-sky); }
 
-    /* Footer */
-    footer {
-      background-color: #1a1d24;
-      border-top: 1px solid #2d3139;
-      padding: 8px 24px;
-      font-size: 0.75rem;
-      color: #64748b;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-shrink: 0;
-    }
+  /* Segmented Control Bars */
+  .toolbar-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .segmented-bar {
+    display: inline-flex;
+    background: var(--bg-base);
+    padding: 3px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    gap: 3px;
+  }
+  .seg-btn {
+    font-family: var(--font-sans);
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .seg-btn:hover { color: var(--text-main); }
+  .seg-btn.active {
+    background: var(--accent-violet);
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(139, 92, 246, 0.35);
+  }
 
-    footer .school-tag {
-      font-weight: 600;
-      color: #94a3b8;
-    }
-        .tool-btn, .action-btn {
-      background: #1e293b;
-      color: #f8fafc;
-      border: 1px solid #334155;
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.8rem;
-    }
-    .tool-btn.active {
-      background: #0284c7;
-      border-color: #38bdf8;
-    }
-    .tool-btn.danger {
-      border-color: #ef4444; color: #f87171;
-    }
-    .action-btn.primary {
-      background: #0284c7; border-color: #38bdf8; font-weight: bold;
-    }
-  </style>
+  /* Sliders & Fields */
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+    gap: 12px;
+  }
+  .slider-box {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 9px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .slider-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+  .slider-val {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-main);
+    font-size: 0.74rem;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    background: var(--bg-base);
+    border-radius: 99px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--accent-violet);
+    border: 2px solid #fff;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--accent-violet);
+    border: 2px solid #fff;
+    cursor: pointer;
+  }
+
+  /* Buttons & Select */
+  select, input[type="number"] {
+    background: var(--bg-elevated);
+    color: var(--text-main);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    outline: none;
+  }
+  select:focus, input[type="number"]:focus { border-color: var(--accent-violet); }
+  input[type="number"]:disabled { opacity: 0.35; }
+
+  .studio-btn {
+    background: var(--bg-elevated);
+    color: var(--text-main);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 7px 13px;
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .studio-btn:hover:not(:disabled) {
+    border-color: var(--border-focus);
+    background: #202030;
+  }
+  .studio-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .studio-btn.run-primary {
+    background: linear-gradient(135deg, var(--accent-violet), var(--accent-indigo));
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  }
+  .studio-btn.run-primary:hover:not(:disabled) { filter: brightness(1.1); }
+  .studio-btn.run-primary.paused {
+    background: var(--accent-amber);
+    color: #140d00;
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+  }
+  .studio-btn.danger-outline {
+    color: var(--accent-coral);
+    border-color: rgba(244, 63, 94, 0.3);
+  }
+  .studio-btn.danger-outline:hover:not(:disabled) {
+    background: rgba(244, 63, 94, 0.12);
+    border-color: var(--accent-coral);
+  }
+
+  /* Legend Strip */
+  .legend-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 0.73rem;
+    color: var(--text-muted);
+    padding: 2px 4px;
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  /* Stop Rules */
+  .rules-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .rule-item {
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+  .rule-item label { display: flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+  .rule-item input[type="checkbox"] { accent-color: var(--accent-violet); }
+  .rule-item input[type="number"] { width: 68px; padding: 4px 6px; font-family: var(--font-mono); font-size: 0.72rem; }
+
+  /* Math & State Inspector (Right Column) */
+  .formula-banner {
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.12), rgba(56, 189, 248, 0.08));
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-radius: var(--radius-md);
+    padding: 11px 14px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .formula-banner .math-expr { color: var(--accent-sky); font-weight: 500; }
+  .formula-banner .verdict-line { color: var(--text-muted); font-size: 0.74rem; }
+
+  /* Live Distribution Bar */
+  .dist-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .dist-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+  }
+  .dist-bar {
+    height: 8px;
+    width: 100%;
+    background: var(--bg-base);
+    border-radius: 99px;
+    overflow: hidden;
+    display: flex;
+    border: 1px solid var(--border-subtle);
+  }
+  .dist-seg { height: 100%; transition: width 0.2s ease; }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .kpi-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 9px 10px;
+  }
+  .kpi-card .k-title {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+  .kpi-card .k-num {
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    margin-top: 3px;
+  }
+
+  .queue-drawer {
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+  .queue-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 7px;
+    max-height: 62px;
+    overflow-y: auto;
+  }
+  .q-chip {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    padding: 2px 7px;
+    border-radius: 99px;
+    font-size: 0.67rem;
+    color: var(--text-muted);
+  }
+  .q-chip.next {
+    border-color: var(--accent-emerald);
+    color: var(--accent-emerald);
+    background: rgba(16, 185, 129, 0.12);
+  }
+
+  .step-console {
+    background: var(--bg-elevated);
+    border-left: 3px solid var(--accent-violet);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-main);
+    line-height: 1.55;
+  }
+
+  /* Compact Footer */
+  footer.studio-footer {
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-subtle);
+    padding: 8px 24px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  footer.studio-footer .school-badge {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: #c4b5fd;
+  }
+</style>
 </head>
 <body>
 
   <!-- Header -->
-  <header>
-    <h1 id="algo-title">DBScan Algorithm Visualizer</h1>
-    <p id="algo-desc">Density-Based Spatial Clustering of Applications with Noise.</p>
+  <header class="studio-header">
+    <div class="title-cluster">
+      <div class="logo-mark">ε</div>
+      <div class="title-text">
+        <h1 id="algo-title">DBSCAN Spatial Clustering Studio</h1>
+        <p id="algo-desc">Interactive density-reachability explorer: groups dense neighborhoods via ε-balls and flags isolated outliers.</p>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-pill">
+        <span class="status-dot" id="headerDot"></span>
+        <span id="stateBadge">STATE: IDLE</span>
+      </div>
+    </div>
   </header>
 
-  <!-- Two-Column Body -->
-  <main>
-    <!-- Left Column: Data Input & Controls -->
-    <section class="column column-left">
-      <!-- Top-Left: Data Canvas / Input -->
-      <div class="panel" id="panel-data-canvas">
-        <h2 class="panel-title">Data Canvas</h2>
-        <div class="canvas-container" id="data-canvas-wrapper">
-          <canvas id="dataCanvas" width="500" height="350"></canvas>
-        </div>
-          <!-- Top-Left: Add this right below the </canvas> tag inside #data-canvas-wrapper -->
-          <div class="canvas-toolbar" style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-            <button id="btn-add" class="tool-btn active">Point</button>
-            <button id="btn-spray" class="tool-btn">Spray</button>
-            <button id="btn-erase" class="tool-btn">Erase</button>
-            <input type="range" id="nozzleSize" min="10" max="60" value="25" title="Nozzle Size" />
-            <button id="btn-random" class="tool-btn" style="margin-left: auto;">Random Data</button>
-            <button id="btn-clear" class="tool-btn danger">Clear Data</button>
+  <!-- Main Split Body (Independent Vertical Scrollbars) -->
+  <main class="workspace">
+
+    <!-- LEFT COLUMN -->
+    <section class="viewport-col col-left">
+
+      <!-- TOP-LEFT: Interactive Data Canvas -->
+      <div class="module-card" id="cardCanvas">
+        <div class="module-header">
+          <div class="module-title-group">
+            <span class="module-tag">Input Plane</span>
+            <h2 class="module-title">2D Spatial Data Canvas</h2>
           </div>
+          <div class="module-meta">
+            <span id="pointCountLabel">0 points</span>
+            <button class="collapse-btn" data-target="cardCanvas" title="Toggle section">−</button>
+          </div>
+        </div>
+
+        <div class="module-content">
+          <div class="canvas-stage">
+            <canvas id="dataCanvas"></canvas>
+            <!-- Floating HUD Overlay -->
+            <div class="canvas-hud">
+              <div class="hud-pill" id="cursorCoord">x: 0.00, y: 0.00</div>
+              <div class="hud-pill">
+                <button class="hud-btn" id="btnZoomIn" title="Zoom In">+</button>
+                <button class="hud-btn" id="btnZoomOut" title="Zoom Out">−</button>
+                <button class="hud-btn" id="btnResetView" title="Reset 1:1 View">1:1</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="legend-strip">
+            <span class="legend-item"><i class="swatch" style="background:#5e5e80"></i>Unvisited</span>
+            <span class="legend-item"><i class="swatch" style="background:var(--accent-emerald); border:1.5px solid #fff"></i>Core (≥ MinPts)</span>
+            <span class="legend-item"><i class="swatch" style="background:var(--accent-sky)"></i>Border</span>
+            <span class="legend-item"><i class="swatch" style="background:var(--accent-coral)"></i>Noise (-1)</span>
+            <span class="legend-item"><i class="swatch" style="border:1.5px dashed var(--accent-amber); background:transparent"></i>Active ε-Neighborhood</span>
+          </div>
+
+          <div class="toolbar-grid">
+            <div class="segmented-bar" id="toolGroup">
+              <button class="seg-btn active" data-tool="point">● Point</button>
+              <button class="seg-btn" data-tool="spray">✦ Spray</button>
+              <button class="seg-btn" data-tool="erase">✕ Erase</button>
+              <button class="seg-btn" data-tool="pan">✥ Pan</button>
+            </div>
+
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <select id="patternSelect" title="Select preset geometry">
+                <option value="blobs">3 Gaussian Blobs + Noise</option>
+                <option value="rings">Bullseye Concentric Rings</option>
+                <option value="moons">Two Interlocking Crescents</option>
+                <option value="river">Sinusoidal Fault Line</option>
+                <option value="varying">Multi-Density Clouds</option>
+                <option value="bridge">Necktie Bridged Clusters</option>
+              </select>
+              <button class="studio-btn" id="btn-random">Generate</button>
+              <button class="studio-btn" id="btnUndoSpray" disabled>Undo</button>
+              <button class="studio-btn danger-outline" id="btn-clear">Clear</button>
+            </div>
+          </div>
+
+          <div class="controls-grid">
+            <div class="slider-box">
+              <div class="slider-top"><span>Nozzle Size</span><span class="slider-val" id="nozzleRadiusVal">28px</span></div>
+              <input type="range" id="nozzleSize" min="8" max="75" value="28" />
+            </div>
+            <div class="slider-box">
+              <div class="slider-top"><span>Spray Spread</span><span class="slider-val" id="spraySpreadVal">0.45</span></div>
+              <input type="range" id="spraySpread" min="10" max="100" value="45" />
+            </div>
+            <div class="slider-box">
+              <div class="slider-top"><span>Spray Flow</span><span class="slider-val" id="sprayRateVal">4 pt/tick</span></div>
+              <input type="range" id="sprayRate" min="1" max="10" value="4" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Bottom-Left: Hyperparameters & Controls -->
-      <div class="panel" id="panel-controls">
-        <h2 class="panel-title">Hyperparameters &amp; Controls</h2>
-        <div id="controls-container">
-          <!-- Bottom-Left: Replace the contents of <div id="controls-container"> with this: -->
-          <div id="controls-container" style="display: flex; flex-direction: column; gap: 12px;">
-            <div>
-              <label style="color: #38bdf8;">Epsilon (Radius): <span id="valEps">35</span>px</label>
-              <input type="range" id="paramEps" min="15" max="100" value="35" style="width: 100%;" />
-            </div>
-            <div>
-              <label style="color: #38bdf8;">MinPts (Density): <span id="valMinPts">4</span></label>
-              <input type="range" id="paramMinPts" min="2" max="15" value="4" style="width: 100%;" />
-            </div>
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-              <button id="btn-step" class="action-btn" style="flex: 1;">Step</button>
-              <button id="btn-play" class="action-btn primary" style="flex: 2;">Play to Convergence</button>
-            </div>
+      <!-- BOTTOM-LEFT: Hyperparameters & Execution Controls -->
+      <div class="module-card" id="cardControls">
+        <div class="module-header">
+          <div class="module-title-group">
+            <span class="module-tag">Parameters</span>
+            <h2 class="module-title">Hyperparameters &amp; Execution</h2>
+          </div>
+          <div class="module-meta">
+            <span id="stepCounterLabel">Step 0</span>
+            <button class="collapse-btn" data-target="cardControls" title="Toggle section">−</button>
+          </div>
         </div>
+
+        <div class="module-content">
+          <div class="controls-grid">
+            <div class="slider-box">
+              <div class="slider-top"><span>Epsilon Radius (ε)</span><span class="slider-val" id="valEps">0.85</span></div>
+              <input type="range" id="paramEps" min="20" max="250" value="85" step="5" />
+            </div>
+            <div class="slider-box">
+              <div class="slider-top"><span>MinPts Threshold</span><span class="slider-val" id="valMinPts">4 pts</span></div>
+              <input type="range" id="paramMinPts" min="2" max="15" value="4" step="1" />
+            </div>
+            <div class="slider-box">
+              <div class="slider-top"><span>Simulation Speed</span><span class="slider-val" id="valSpeed">12 step/s</span></div>
+              <input type="range" id="paramSpeed" min="1" max="60" value="12" step="1" />
+            </div>
+          </div>
+
+          <div class="toolbar-grid" style="margin-top:2px;">
+            <span style="font-size:0.76rem; color:var(--text-muted);">Distance Metric Geometry:</span>
+            <div class="segmented-bar" id="metricGroup">
+              <button class="seg-btn active" data-metric="euclidean">Euclidean L₂ (Circle)</button>
+              <button class="seg-btn" data-metric="manhattan">Manhattan L₁ (Diamond)</button>
+            </div>
+          </div>
+
+          <div class="rules-row">
+            <div class="rule-item">
+              <label><input type="checkbox" id="chkStopUnvisited" /> Pause if unvisited ≤</label>
+              <input type="number" id="stopUnvisitedInput" min="0" step="1" placeholder="10" disabled />
+            </div>
+            <div class="rule-item">
+              <label><input type="checkbox" id="chkStopStep" /> Pause at step #</label>
+              <input type="number" id="stopStepInput" min="1" step="1" placeholder="50" disabled />
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <button class="studio-btn" id="btn-step" style="flex:1;">⏭ Step Once</button>
+            <button class="studio-btn run-primary" id="btn-play" style="flex:2;">▶ Play to Convergence</button>
+            <button class="studio-btn" id="btn-reset">↺ Reset Model</button>
+          </div>
+          <div id="stopStatus" style="font-family:var(--font-mono); font-size:0.72rem; color:var(--accent-emerald); min-height:14px;"></div>
         </div>
       </div>
+
     </section>
 
-    <!-- Right Column: Model State & Loss -->
-    <section class="column column-right">
-      <!-- Top-Right: Model State / Internal Structure -->
-      <div class="panel" id="panel-model-state">
-        <h2 class="panel-title">Model State &amp; Mathematics</h2>
-        <div class="canvas-container" id="model-state-container">
-          <!-- Matrices, trees, weights, or math formulas go here -->
+    <!-- RIGHT COLUMN -->
+    <section class="viewport-col col-right">
+
+      <!-- TOP-RIGHT: Model State & Mathematics -->
+      <div class="module-card" id="cardState">
+        <div class="module-header">
+          <div class="module-title-group">
+            <span class="module-tag">Internal State</span>
+            <h2 class="module-title">Model State &amp; Mathematics</h2>
+          </div>
+          <div class="module-meta">
+            <span id="activeCoordBadge">p = none</span>
+            <button class="collapse-btn" data-target="cardState" title="Toggle section">−</button>
+          </div>
+        </div>
+
+        <div class="module-content">
+          <div class="formula-banner">
+            <div class="math-expr">N<sub>ε</sub>(p) = { q ∈ D | dist(p, q) ≤ <span id="mathEps">0.85</span> }</div>
+            <div class="verdict-line">
+              Density Check: |N<sub>ε</sub>(p)| = <b id="readoutNeighbors" style="color:var(--text-main)">0</b> vs MinPts (<b id="mathMinPts">4</b>) 
+              &rarr; <span id="mathDecision" style="font-weight:600;">Idle</span>
+            </div>
+          </div>
+
+          <!-- Real-Time Point Classification Distribution Bar -->
+          <div class="dist-bar-wrap">
+            <div class="dist-bar-labels">
+              <span>Classification Breakdown</span>
+              <span id="distSummaryText">100% Unvisited</span>
+            </div>
+            <div class="dist-bar">
+              <div class="dist-seg" id="segCore" style="width:0%; background:var(--accent-emerald);" title="Core"></div>
+              <div class="dist-seg" id="segBorder" style="width:0%; background:var(--accent-sky);" title="Border"></div>
+              <div class="dist-seg" id="segNoise" style="width:0%; background:var(--accent-coral);" title="Noise"></div>
+              <div class="dist-seg" id="segUnvisited" style="width:100%; background:#3b3b54;" title="Unvisited"></div>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="k-title">Clusters</div>
+              <div class="k-num" id="statClusters" style="color:var(--accent-violet)">0</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-title">Core / Border</div>
+              <div class="k-num" id="statClustered" style="color:var(--accent-emerald)">0 / 0</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-title">Noise (-1)</div>
+              <div class="k-num" id="statNoise" style="color:var(--accent-coral)">0</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-title">Unvisited</div>
+              <div class="k-num" id="statUnvisited" style="color:var(--accent-amber)">0</div>
+            </div>
+          </div>
+
+          <div class="queue-drawer">
+            <div style="display:flex; justify-content:space-between; color:var(--text-muted);">
+              <span>BFS Reachability Queue</span>
+              <b id="queueCountLabel" style="color:var(--accent-sky)">0 queued</b>
+            </div>
+            <div class="queue-chips" id="queuePills">
+              <span style="color:var(--text-dim);">No active cluster expansion.</span>
+            </div>
+          </div>
+
+          <div class="step-console" id="model-state-container">
+            Ready. Generate a preset dataset or spray custom points on the plane, then press <b>Step Once</b>.
+          </div>
         </div>
       </div>
 
-      <!-- Bottom-Right: Loss Graph -->
-      <div class="panel" id="panel-loss-graph">
-        <h2 class="panel-title">Loss Convergence</h2>
-        <div class="canvas-container" id="loss-canvas-wrapper">
-          <canvas id="lossCanvas" width="500" height="240"></canvas>
+      <!-- BOTTOM-RIGHT: Loss / Convergence Graph -->
+      <div class="module-card" id="cardLoss">
+        <div class="module-header">
+          <div class="module-title-group">
+            <span class="module-tag">Convergence</span>
+            <h2 class="module-title">Unprocessed Points Decay Curve</h2>
+          </div>
+          <div class="module-meta">
+            <span>Remaining vs. Step</span>
+            <button class="collapse-btn" data-target="cardLoss" title="Toggle section">−</button>
+          </div>
+        </div>
+
+        <div class="module-content">
+          <div class="canvas-stage">
+            <canvas id="lossCanvas"></canvas>
+          </div>
         </div>
       </div>
+
     </section>
   </main>
 
   <!-- Compact Footer -->
-  <footer>
+  <footer class="studio-footer">
     <span>Members: Brandon Darryl Lynn</span>
-    <span class="school-tag">CEi KMITL</span>
+    <span class="school-badge">CEi KMITL</span>
   </footer>
 
-  <!-- Single-File JavaScript Logic -->
-    <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const canvas = document.getElementById("dataCanvas");
-    const ctx = canvas.getContext("2d");
-    
-    // State
-    let points = [];
-    // --- DBSCAN State ---
-    let eps = parseInt(document.getElementById("paramEps").value);
-    let minPts = parseInt(document.getElementById("paramMinPts").value);
-    
-    let dbscanState = 'IDLE'; // 'IDLE' (searching for new core) or 'EXPANDING' (processing queue)
-    let currentClusterId = 0;
-    let seedQueue = [];
-    let currentPoint = null; 
-    let activeInterval = null;
-    // --- Chart State ---
-    let lossHistory = []; 
+  <!-- Embedded JavaScript Logic -->
+  <script>
+  (function() {
+    "use strict";
+
+    const MAX_POINTS = 800;
+    const PALETTE = [
+      "#10b981", "#8b5cf6", "#38bdf8", "#f59e0b",
+      "#ec4899", "#6366f1", "#14b8a6", "#eab308"
+    ];
+
+    const state = {
+      points: [],
+      eps: 0.85,
+      minPts: 4,
+      metric: "euclidean",
+      speed: 12,
+      tool: "point",
+      spray: { radiusPx: 28, spread: 0.45, rate: 4 },
+      xMin: 0, xMax: 10,
+      yMin: 0, yMax: 10,
+      dbscanState: "IDLE",
+      stepCount: 0,
+      currentClusterId: 0,
+      seedQueue: [],
+      currentPoint: null,
+      currentNeighbors: [],
+      running: false,
+      lossHistory: [],
+      stopOnUnvisited: false, stopUnvisitedTarget: null,
+      stopOnStep: false, stopStepTarget: null
+    };
+
+    const dataCanvas = document.getElementById("dataCanvas");
     const lossCanvas = document.getElementById("lossCanvas");
+    const ctx = dataCanvas.getContext("2d");
     const lossCtx = lossCanvas.getContext("2d");
 
-    // Hyperparameter Listeners
-    document.getElementById("paramEps").addEventListener("input", (e) => {
-      eps = parseInt(e.target.value);
-      document.getElementById("valEps").textContent = eps;
-      resetModel();
-    });
-    
-    document.getElementById("paramMinPts").addEventListener("input", (e) => {
-      minPts = parseInt(e.target.value);
-      document.getElementById("valMinPts").textContent = minPts;
-      resetModel();
-    });
+    const dims = { data: { w: 0, h: 0 }, loss: { w: 0, h: 0 } };
+    const PAD = { l: 42, r: 16, t: 16, b: 30 };
 
-    // Helper: Euclidean Distance
-    function getNeighbors(point) {
-      return points.filter(p => Math.hypot(p.x - point.x, p.y - point.y) <= eps);
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    function randRange(a, b) { return a + Math.random() * (b - a); }
+    function gaussianPair() {
+      const u1 = Math.max(Math.random(), 1e-9), u2 = Math.random();
+      const r = Math.sqrt(-2 * Math.log(u1));
+      return [r * Math.cos(2 * Math.PI * u2), r * Math.sin(2 * Math.PI * u2)];
     }
 
-    // Reset Model (Keeps points, clears clusters)
-    function resetModel() {
-      points.forEach(p => {
-        p.cluster = null;
-        p.type = "unvisited";
-      });
-      dbscanState = 'IDLE';
-      currentClusterId = 0;
-      seedQueue = [];
-      currentPoint = null;
-      clearInterval(activeInterval);
-      drawCanvas();
-      updateModelStatePanel("Model reset. Ready to start.");
-      
-      // NEW: Reset the chart
-      lossHistory = [points.length]; 
-      drawLossGraph();
-    }
-    let currentTool = "add"; // 'add', 'spray', 'erase'
-    let isDrawing = false;
-    
-    // UI Elements
-    const nozzleInput = document.getElementById("nozzleSize");
-    const tools = {
-      add: document.getElementById("btn-add"),
-      spray: document.getElementById("btn-spray"),
-      erase: document.getElementById("btn-erase")
-    };
-
-    // Tool Selection
-    Object.keys(tools).forEach(key => {
-      tools[key].addEventListener("click", () => {
-        Object.values(tools).forEach(btn => btn.classList.remove("active"));
-        tools[key].classList.add("active");
-        currentTool = key;
-      });
-    });
-
-    // Clear Canvas
-    document.getElementById("btn-clear").addEventListener("click", () => {
-      points = [];
-      resetModel();
-    });
-    // Generate Random Data (Clusters + Noise)
-    document.getElementById("btn-random").addEventListener("click", () => {
-      points = []; // Clear existing data first
-      
-      const numClusters = 3;
-      const pointsPerCluster = 40;
-      const noisePoints = 25;
-      
-      // 1. Generate 3 distinct dense clusters
-      for (let i = 0; i < numClusters; i++) {
-        // Pick a random center point for this cluster
-        const centerX = Math.random() * (canvas.width - 100) + 50;
-        const centerY = Math.random() * (canvas.height - 100) + 50;
-        
-        // Scatter points tightly around that center
-        for (let j = 0; j < pointsPerCluster; j++) {
-          const angle = Math.random() * Math.PI * 2;
-          const radius = Math.random() * 35; // Keep them within a 35px radius
-          points.push({
-            x: centerX + Math.cos(angle) * radius,
-            y: centerY + Math.sin(angle) * radius,
-            cluster: null, type: "unvisited"
-          });
-        }
-      }
-      
-      // 2. Sprinkle random noise across the whole canvas
-      for (let i = 0; i < noisePoints; i++) {
-        points.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          cluster: null, type: "unvisited"
-        });
-      }
-      
-      // resetModel() resets the chart, clears DBSCAN state, and redraws the canvas
-      resetModel(); 
-    });
-
-    // Mouse Coordinates helper
-    const getMousePos = (e) => {
+    function resizeCanvas(canvas, context, key) {
       const rect = canvas.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    };
-
-    // Canvas Actions
-    const handleAction = (x, y) => {
-      const nozzle = parseInt(nozzleInput.value);
-      
-      if (currentTool === "add") {
-        points.push({ x, y, cluster: null, type: "unvisited" });
-        isDrawing = false; // Only one point per click
-      } 
-      else if (currentTool === "spray") {
-        for(let i=0; i<3; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const radius = Math.random() * nozzle;
-          points.push({ 
-            x: x + Math.cos(angle) * radius, 
-            y: y + Math.sin(angle) * radius, 
-            cluster: null, type: "unvisited" 
-          });
-        }
-      } 
-      else if (currentTool === "erase") {
-        points = points.filter(p => Math.hypot(p.x - x, p.y - y) > nozzle);
-      }
-      drawCanvas();
-      
-      // NEW: Update chart base point count while drawing
-      if (dbscanState === 'IDLE' && currentClusterId === 0) {
-        lossHistory = [points.length];
-        drawLossGraph();
-      }
-    };
-
-    // Mouse Listeners
-    canvas.addEventListener("mousedown", (e) => {
-      isDrawing = true;
-      const { x, y } = getMousePos(e);
-      handleAction(x, y);
-    });
-    
-    canvas.addEventListener("mousemove", (e) => {
-      if (!isDrawing) return;
-      const { x, y } = getMousePos(e);
-      handleAction(x, y);
-    });
-    
-    canvas.addEventListener("mouseup", () => isDrawing = false);
-    canvas.addEventListener("mouseleave", () => isDrawing = false);
-
-    function stepDBSCAN() {
-    if (points.length === 0) return;
-
-    if (dbscanState === 'IDLE') {
-      // Find the next unvisited point
-      currentPoint = points.find(p => p.type === "unvisited");
-      
-      if (!currentPoint) {
-        updateModelStatePanel("🎉 Convergence reached! All points processed.");
-        clearInterval(activeInterval);
-        drawCanvas();
-        return;
-      }
-
-      currentPoint.type = "visited";
-      let neighbors = getNeighbors(currentPoint);
-
-      if (neighbors.length < minPts) {
-        // Not enough neighbors -> mark as noise (might become border later)
-        currentPoint.cluster = -1; 
-        currentPoint.type = "noise";
-        updateModelStatePanel(`Checking point...<br>Neighbors: ${neighbors.length} < MinPts (${minPts}).<br>Result: <span style="color:#ef4444">NOISE</span>`);
-      } else {
-        // Core point found -> start new cluster
-        currentPoint.type = "core";
-        currentPoint.cluster = currentClusterId;
-        
-        // Add unvisited neighbors to queue
-        seedQueue = neighbors.filter(n => n !== currentPoint);
-        dbscanState = 'EXPANDING';
-        updateModelStatePanel(`Checking point...<br>Neighbors: ${neighbors.length} >= MinPts (${minPts}).<br>Result: <span style="color:#22c55e">CORE</span> (Cluster ${currentClusterId})<br>Added ${seedQueue.length} points to expansion queue.`);
-      }
-    } 
-    else if (dbscanState === 'EXPANDING') {
-      if (seedQueue.length === 0) {
-        currentClusterId++;
-        dbscanState = 'IDLE';
-        currentPoint = null;
-        stepDBSCAN(); // Move immediately to next unvisited point
-        return;
-      }
-
-      // Pop point from queue
-      currentPoint = seedQueue.shift();
-
-      if (currentPoint.type === "noise") {
-        // Noise point reached by a core point becomes a border point
-        currentPoint.cluster = currentClusterId;
-        currentPoint.type = "border";
-        updateModelStatePanel(`Absorbed Noise point into Cluster ${currentClusterId} as BORDER.<br>Remaining in queue: ${seedQueue.length}`);
-      } 
-      else if (currentPoint.type === "unvisited") {
-        currentPoint.type = "visited";
-        currentPoint.cluster = currentClusterId;
-        let neighbors = getNeighbors(currentPoint);
-
-        if (neighbors.length >= minPts) {
-          currentPoint.type = "core";
-          // Add newly discovered neighbors to the queue
-          let newNeighbors = neighbors.filter(n => n.type === "unvisited" && !seedQueue.includes(n));
-          seedQueue.push(...newNeighbors);
-          updateModelStatePanel(`Expanded cluster. Found new CORE point.<br>Added ${newNeighbors.length} new neighbors.<br>Remaining in queue: ${seedQueue.length}`);
-        } else {
-          currentPoint.type = "border";
-          updateModelStatePanel(`Expanded cluster. Found BORDER point.<br>Remaining in queue: ${seedQueue.length}`);
-        }
-      }
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.round(rect.width));
+      const h = Math.max(1, Math.round(rect.height));
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      dims[key].w = w;
+      dims[key].h = h;
     }
-    let unvisitedCount = points.filter(p => p.type === "unvisited").length;
-      lossHistory.push(unvisitedCount);
-      drawLossGraph();
-    drawCanvas();
-  }
 
-  // Right Column UI Updater
-  function updateModelStatePanel(htmlContent) {
-    document.getElementById("model-state-container").innerHTML = `<div style="padding: 16px; width: 100%; color: #e2e8f0; font-family: monospace;">${htmlContent}</div>`;
-  }
+    function resizeAll() {
+      resizeCanvas(dataCanvas, ctx, "data");
+      resizeCanvas(lossCanvas, lossCtx, "loss");
+      updateEpsLabel();
+      drawAll();
+    }
+    window.addEventListener("resize", resizeAll);
 
-  // Button Listeners
-  document.getElementById("btn-step").addEventListener("click", () => {
-    clearInterval(activeInterval);
-    stepDBSCAN();
-  });
-  
-  document.getElementById("btn-play").addEventListener("click", () => {
-    clearInterval(activeInterval);
-    activeInterval = setInterval(stepDBSCAN, 150); // Run step every 150ms
-  });
-    // Render Loop
-// --- Enhanced Render Loop ---
-    const colors = ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
-    
-    function drawCanvas() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Draw Epsilon radius around active point
-      if (currentPoint) {
+    function plotArea() {
+      const w = dims.data.w, h = dims.data.h;
+      return {
+        x0: PAD.l,
+        y0: PAD.t,
+        w: Math.max(10, w - PAD.l - PAD.r),
+        h: Math.max(10, h - PAD.t - PAD.b)
+      };
+    }
+
+    function dataToPx(x, y) {
+      const a = plotArea();
+      return {
+        x: a.x0 + ((x - state.xMin) / (state.xMax - state.xMin)) * a.w,
+        y: a.y0 + (1 - (y - state.yMin) / (state.yMax - state.yMin)) * a.h
+      };
+    }
+
+    function pxToData(px, py) {
+      const a = plotArea();
+      return {
+        x: state.xMin + ((px - a.x0) / a.w) * (state.xMax - state.xMin),
+        y: state.yMin + (1 - (py - a.y0) / a.h) * (state.yMax - state.yMin)
+      };
+    }
+
+    function pxPerDataUnitX() { return plotArea().w / (state.xMax - state.xMin); }
+    function pxPerDataUnitY() { return plotArea().h / (state.yMax - state.yMin); }
+
+    function calcDist(p1, p2) {
+      if (state.metric === "manhattan") {
+        return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
+      }
+      return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    }
+
+    function getNeighbors(point) {
+      return state.points.filter(p => calcDist(p, point) <= state.eps);
+    }
+
+    // ==========================================
+    // 1. RENDER SPATIAL CANVAS
+    // ==========================================
+    const brushCursor = { visible: false, px: 0, py: 0 };
+
+    function drawDataCanvas() {
+      const w = dims.data.w, h = dims.data.h;
+      const a = plotArea();
+      ctx.clearRect(0, 0, w, h);
+
+      // Subtle Coordinate Grid
+      ctx.save();
+      ctx.font = "10px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = "#5e5e80";
+      ctx.strokeStyle = "#141420";
+      ctx.lineWidth = 1;
+
+      const steps = 5;
+      const spanX = state.xMax - state.xMin;
+      const spanY = state.yMax - state.yMin;
+
+      for (let i = 0; i <= steps; i++) {
+        const xv = state.xMin + (spanX * i) / steps;
+        const p = dataToPx(xv, state.yMin);
         ctx.beginPath();
-        ctx.arc(currentPoint.x, currentPoint.y, eps, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(56, 189, 248, 0.15)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(56, 189, 248, 0.5)";
+        ctx.moveTo(p.x, a.y0);
+        ctx.lineTo(p.x, a.y0 + a.h);
         ctx.stroke();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText(xv.toFixed(1), p.x, a.y0 + a.h + 7);
+
+        const yv = state.yMin + (spanY * i) / steps;
+        const p2 = dataToPx(state.xMin, yv);
+        ctx.beginPath();
+        ctx.moveTo(a.x0, p2.y);
+        ctx.lineTo(a.x0 + a.w, p2.y);
+        ctx.stroke();
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText(yv.toFixed(1), a.x0 - 7, p2.y);
+      }
+      ctx.strokeStyle = "#232334";
+      ctx.strokeRect(a.x0, a.y0, a.w, a.h);
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(a.x0, a.y0, a.w, a.h);
+      ctx.clip();
+
+      // Active Epsilon Search Region & Neighbor Links
+      if (state.currentPoint) {
+        const cp = dataToPx(state.currentPoint.x, state.currentPoint.y);
+        const rx = state.eps * pxPerDataUnitX();
+        const ry = state.eps * pxPerDataUnitY();
+
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.35)";
+        ctx.lineWidth = 1.1;
+        state.currentNeighbors.forEach(nb => {
+          const np = dataToPx(nb.x, nb.y);
+          ctx.beginPath();
+          ctx.moveTo(cp.x, cp.y);
+          ctx.lineTo(np.x, np.y);
+          ctx.stroke();
+        });
+
+        ctx.beginPath();
+        if (state.metric === "manhattan") {
+          ctx.moveTo(cp.x, cp.y - ry);
+          ctx.lineTo(cp.x + rx, cp.y);
+          ctx.lineTo(cp.x, cp.y + ry);
+          ctx.lineTo(cp.x - rx, cp.y);
+          ctx.closePath();
+        } else {
+          ctx.ellipse(cp.x, cp.y, rx, ry, 0, 0, Math.PI * 2);
+        }
+        ctx.fillStyle = "rgba(245, 158, 11, 0.09)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.85)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
 
-      // Draw all points
-      points.forEach(p => {
+      // Render Data Points
+      for (let i = 0; i < state.points.length; i++) {
+        const p = state.points[i];
+        const pp = dataToPx(p.x, p.y);
+        const radius = p.type === "core" ? 5.2 : 4.2;
+
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-        
+        ctx.arc(pp.x, pp.y, radius, 0, Math.PI * 2);
+
         if (p.cluster === null) {
-          ctx.fillStyle = "#64748b"; // Unvisited
+          ctx.fillStyle = "#5e5e80";
         } else if (p.cluster === -1) {
-          ctx.fillStyle = "#ef4444"; // Noise (Red)
+          ctx.fillStyle = "#f43f5e";
         } else {
-          ctx.fillStyle = colors[p.cluster % colors.length]; // Cluster Color
+          ctx.fillStyle = PALETTE[p.cluster % PALETTE.length];
         }
-        
         ctx.fill();
-        
-        // Highlight core points with a white ring
+
         if (p.type === "core") {
           ctx.lineWidth = 1.5;
           ctx.strokeStyle = "#ffffff";
           ctx.stroke();
         }
-        
-        // Highlight currently active point with yellow
-        if (currentPoint === p) {
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = "#fbbf24";
+
+        if (state.seedQueue.includes(p)) {
+          ctx.beginPath();
+          ctx.arc(pp.x, pp.y, radius + 3, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.7)";
+          ctx.lineWidth = 1;
           ctx.stroke();
         }
-      });
+
+        if (state.currentPoint === p) {
+          ctx.beginPath();
+          ctx.arc(pp.x, pp.y, radius + 4.2, 0, Math.PI * 2);
+          ctx.strokeStyle = "#f59e0b";
+          ctx.lineWidth = 2.2;
+          ctx.stroke();
+        }
+      }
+
+      // Interactive Tool Outline
+      if (brushCursor.visible && state.tool !== "pan") {
+        ctx.beginPath();
+        if (state.tool === "point") {
+          const rx = state.eps * pxPerDataUnitX();
+          const ry = state.eps * pxPerDataUnitY();
+          ctx.ellipse(brushCursor.px, brushCursor.py, rx, ry, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(139, 92, 246, 0.4)";
+        } else {
+          ctx.arc(brushCursor.px, brushCursor.py, state.spray.radiusPx, 0, Math.PI * 2);
+          ctx.strokeStyle = state.tool === "erase" ? "rgba(244, 63, 94, 0.75)" : "rgba(139, 92, 246, 0.65)";
+        }
+        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ctx.restore();
     }
+
     // ==========================================
-    // 4. LOSS / CONVERGENCE GRAPH
+    // 2. RENDER CONVERGENCE CURVE
     // ==========================================
     function drawLossGraph() {
-      lossCtx.clearRect(0, 0, lossCanvas.width, lossCanvas.height);
-      
-      if (lossHistory.length === 0) return;
+      const w = dims.loss.w, h = dims.loss.h;
+      lossCtx.clearRect(0, 0, w, h);
 
-      const pad = 30; // Padding for axes
-      const w = lossCanvas.width - pad * 2;
-      const h = lossCanvas.height - pad * 2;
-      
-      const maxPoints = Math.max(10, points.length); // Max Y value
-      const maxSteps = Math.max(10, lossHistory.length - 1); // Max X value
+      const pad = { l: 44, r: 16, t: 16, b: 28 };
+      const pw = Math.max(10, w - pad.l - pad.r);
+      const ph = Math.max(10, h - pad.t - pad.b);
 
-      // Draw Axes
+      lossCtx.strokeStyle = "#141420";
+      lossCtx.lineWidth = 1;
+      lossCtx.font = "10px 'IBM Plex Mono', monospace";
+      lossCtx.fillStyle = "#5e5e80";
+
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + (ph * i) / 4;
+        lossCtx.beginPath();
+        lossCtx.moveTo(pad.l, y);
+        lossCtx.lineTo(pad.l + pw, y);
+        lossCtx.stroke();
+      }
+      lossCtx.strokeStyle = "#232334";
+      lossCtx.strokeRect(pad.l, pad.t, pw, ph);
+
+      if (state.lossHistory.length < 2) {
+        lossCtx.fillStyle = "#5e5e80";
+        lossCtx.font = "12px 'Plus Jakarta Sans', sans-serif";
+        lossCtx.textAlign = "center";
+        lossCtx.textBaseline = "middle";
+        lossCtx.fillText("Step or Play the model to plot the unprocessed decay curve", pad.l + pw / 2, pad.t + ph / 2);
+        return;
+      }
+
+      const maxVal = Math.max(10, state.points.length);
+      const maxSteps = Math.max(1, state.lossHistory.length - 1);
+
+      lossCtx.textAlign = "right";
+      lossCtx.textBaseline = "middle";
+      lossCtx.fillText(maxVal.toString(), pad.l - 8, pad.t + 4);
+      lossCtx.fillText("0", pad.l - 8, pad.t + ph);
+
+      // Gradient Stroke & Fill
       lossCtx.beginPath();
-      lossCtx.strokeStyle = "#334155";
-      lossCtx.lineWidth = 2;
-      lossCtx.moveTo(pad, pad);
-      lossCtx.lineTo(pad, pad + h);
-      lossCtx.lineTo(pad + w, pad + h);
-      lossCtx.stroke();
+      lossCtx.strokeStyle = "#8b5cf6";
+      lossCtx.lineWidth = 2.4;
+      lossCtx.shadowColor = "rgba(139, 92, 246, 0.5)";
+      lossCtx.shadowBlur = 8;
 
-      // Draw Line Chart
-      lossCtx.beginPath();
-      lossCtx.strokeStyle = "#38bdf8"; // Cyan line
-      lossCtx.lineWidth = 3;
-      lossCtx.lineJoin = "round";
-
-      lossHistory.forEach((val, step) => {
-        const x = pad + (step / maxSteps) * w;
-        const y = pad + h - (val / maxPoints) * h;
-        
+      state.lossHistory.forEach((val, step) => {
+        const x = pad.l + (step / maxSteps) * pw;
+        const y = pad.t + ph - (val / maxVal) * ph;
         if (step === 0) lossCtx.moveTo(x, y);
         else lossCtx.lineTo(x, y);
       });
-      
       lossCtx.stroke();
-      
-      // Fill area under the curve
-      lossCtx.lineTo(pad + w, pad + h);
-      lossCtx.lineTo(pad, pad + h);
-      lossCtx.fillStyle = "rgba(56, 189, 248, 0.1)";
+      lossCtx.shadowBlur = 0;
+
+      const lastX = pad.l + pw;
+      const lastVal = state.lossHistory[state.lossHistory.length - 1];
+      const lastY = pad.t + ph - (lastVal / maxVal) * ph;
+
+      lossCtx.lineTo(lastX, pad.t + ph);
+      lossCtx.lineTo(pad.l, pad.t + ph);
+      lossCtx.closePath();
+      const grad = lossCtx.createLinearGradient(0, pad.t, 0, pad.t + ph);
+      grad.addColorStop(0, "rgba(139, 92, 246, 0.22)");
+      grad.addColorStop(1, "rgba(139, 92, 246, 0.01)");
+      lossCtx.fillStyle = grad;
       lossCtx.fill();
 
-      // Draw Labels
-      lossCtx.fillStyle = "#94a3b8";
-      lossCtx.font = "12px sans-serif";
-      lossCtx.fillText("Unprocessed", pad + 5, pad - 5);
-      lossCtx.fillText("Steps", pad + w - 30, pad + h + 20);
-      lossCtx.fillText("0", pad - 15, pad + h + 5);
-      lossCtx.fillText(maxPoints.toString(), pad - 25, pad + 10);
+      lossCtx.beginPath();
+      lossCtx.fillStyle = "#10b981";
+      lossCtx.arc(lastX, lastY, 4.2, 0, Math.PI * 2);
+      lossCtx.fill();
+
+      lossCtx.fillStyle = "#9494b8";
+      lossCtx.textAlign = "left";
+      lossCtx.textBaseline = "top";
+      lossCtx.fillText("step 0", pad.l, pad.t + ph + 8);
+      lossCtx.textAlign = "right";
+      lossCtx.fillText("step " + maxSteps, pad.l + pw, pad.t + ph + 8);
     }
-    
-    // Call it once at startup
-    drawLossGraph();
-  });
+
+    // ==========================================
+    // 3. DBSCAN STATE MACHINE
+    // ==========================================
+    function resetModel() {
+      setRunning(false);
+      document.getElementById("stopStatus").textContent = "";
+      state.points.forEach(p => {
+        p.cluster = null;
+        p.type = "unvisited";
+        delete p.queued;
+      });
+      state.dbscanState = "IDLE";
+      state.stepCount = 0;
+      state.currentClusterId = 0;
+      state.seedQueue = [];
+      state.currentPoint = null;
+      state.currentNeighbors = [];
+      state.lossHistory = [state.points.length];
+
+      document.getElementById("mathDecision").innerHTML = `<span style="color:var(--text-muted)">Idle</span>`;
+      document.getElementById("activeCoordBadge").textContent = "p = none";
+      document.getElementById("readoutNeighbors").textContent = "0";
+      updateLogPanel("Model reset. Ready to begin density scan.");
+      drawAll();
+    }
+
+    function stepDBSCAN() {
+      if (state.points.length === 0) return;
+
+      if (state.dbscanState === "CONVERGED") {
+        setRunning(false);
+        return;
+      }
+
+      state.stepCount++;
+
+      if (state.dbscanState === "IDLE") {
+        const nextPt = state.points.find(p => p.type === "unvisited");
+
+        if (!nextPt) {
+          state.dbscanState = "CONVERGED";
+          state.currentPoint = null;
+          state.currentNeighbors = [];
+          document.getElementById("mathDecision").innerHTML = `<span style="color:var(--accent-emerald)">CONVERGED</span>`;
+          document.getElementById("activeCoordBadge").textContent = "Complete";
+          updateLogPanel(`✨ <b>Convergence complete!</b> Partitioned dataset into <b>${state.currentClusterId}</b> density clusters.`);
+          setRunning(false);
+          recordLossAndDraw();
+          return;
+        }
+
+        state.currentPoint = nextPt;
+        const neighbors = getNeighbors(nextPt);
+        state.currentNeighbors = neighbors;
+
+        document.getElementById("activeCoordBadge").textContent = `p = (${nextPt.x.toFixed(2)}, ${nextPt.y.toFixed(2)})`;
+        document.getElementById("readoutNeighbors").textContent = neighbors.length;
+
+        if (neighbors.length < state.minPts) {
+          nextPt.type = "noise";
+          nextPt.cluster = -1;
+          document.getElementById("mathDecision").innerHTML = `<span style="color:var(--accent-coral)">NOISE (${neighbors.length} &lt; ${state.minPts})</span>`;
+          updateLogPanel(`Scanned point (${nextPt.x.toFixed(1)}, ${nextPt.y.toFixed(1)}): found <b>${neighbors.length}</b> neighbors inside ε=${state.eps.toFixed(2)}. Marked as <span style="color:var(--accent-coral)">NOISE (-1)</span>.`);
+        } else {
+          nextPt.type = "core";
+          nextPt.cluster = state.currentClusterId;
+          state.seedQueue = [];
+          neighbors.forEach(n => {
+            if (n !== nextPt) {
+              n.queued = true;
+              state.seedQueue.push(n);
+            }
+          });
+          state.dbscanState = "EXPANDING";
+          document.getElementById("mathDecision").innerHTML = `<span style="color:var(--accent-emerald)">CORE &rarr; Cluster #${state.currentClusterId}</span>`;
+          updateLogPanel(`Core point found (${neighbors.length} &ge; ${state.minPts})! Created <b style="color:var(--accent-emerald)">Cluster #${state.currentClusterId}</b> and queued <b>${state.seedQueue.length}</b> neighbors for BFS expansion.`);
+        }
+      } else if (state.dbscanState === "EXPANDING") {
+        if (state.seedQueue.length === 0) {
+          const finishedId = state.currentClusterId;
+          state.currentClusterId++;
+          state.dbscanState = "IDLE";
+          state.currentPoint = null;
+          state.currentNeighbors = [];
+          document.getElementById("mathDecision").innerHTML = `<span style="color:var(--accent-amber)">Cluster #${finishedId} Closed</span>`;
+          updateLogPanel(`BFS queue exhausted for <b>Cluster #${finishedId}</b>. Returning to IDLE scan for next unvisited point.`);
+          recordLossAndDraw();
+          return;
+        }
+
+        const pt = state.seedQueue.shift();
+        state.currentPoint = pt;
+        const neighbors = getNeighbors(pt);
+        state.currentNeighbors = neighbors;
+
+        document.getElementById("activeCoordBadge").textContent = `p = (${pt.x.toFixed(2)}, ${pt.y.toFixed(2)})`;
+        document.getElementById("readoutNeighbors").textContent = neighbors.length;
+
+        if (pt.type === "noise") {
+          pt.type = "border";
+          pt.cluster = state.currentClusterId;
+          document.getElementById("mathDecision").innerHTML = `<span style="color:var(--accent-sky)">BORDER (Absorbed)</span>`;
+          updateLogPanel(`Outlier at (${pt.x.toFixed(1)}, ${pt.y.toFixed(1)}) is density-reachable from Cluster #${state.currentClusterId}; converted from Noise to <b>BORDER</b>.`);
+        } else if (pt.type === "unvisited") {
+          pt.cluster = state.currentClusterId;
+          if (neighbors.length >= state.minPts) {
+            pt.type = "core";
+            let added = 0;
+            neighbors.forEach(n => {
+              if ((n.type === "unvisited" || n.type === "noise") && !n.queued && !state.seedQueue.includes(n)) {
+                n.queued = true;
+                state.seedQueue.push(n);
+                added++;
+              }
+            });
+            document.getElementById("mathDecision").innerHTML = `<span style="color:var(--accent-emerald)">CORE (+${added} queued)</span>`;
+            updateLogPanel(`Expanded to CORE point (${neighbors.length} &ge; ${state.minPts}). Appended <b>${added}</b> new density-reachable neighbors to queue.`);
+          } else {
+            pt.type = "border";
+            document.getElementById("mathDecision").innerHTML = `<span style="color:var(--accent-sky)">BORDER (${neighbors.length} &lt; ${state.minPts})</span>`;
+            updateLogPanel(`Expanded to BORDER point (${neighbors.length} &lt; ${state.minPts}). Joined Cluster #${state.currentClusterId} without expanding further.`);
+          }
+        } else {
+          document.getElementById("mathDecision").innerHTML = `<span style="color:var(--text-muted)">Visited</span>`;
+          updateLogPanel(`Point already assigned to Cluster #${pt.cluster}; advancing queue.`);
+        }
+      }
+
+      recordLossAndDraw();
+    }
+
+    function recordLossAndDraw() {
+      const unvisitedCount = state.points.filter(p => p.type === "unvisited").length;
+      state.lossHistory.push(unvisitedCount);
+      drawAll();
+    }
+
+    function updateLogPanel(html) {
+      document.getElementById("model-state-container").innerHTML = html;
+    }
+
+    function updateReadouts() {
+      const total = state.points.length;
+      const unvisited = state.points.filter(p => p.type === "unvisited").length;
+      const core = state.points.filter(p => p.type === "core").length;
+      const border = state.points.filter(p => p.type === "border").length;
+      const noise = state.points.filter(p => p.type === "noise").length;
+      const clusters = new Set(state.points.filter(p => p.cluster !== null && p.cluster >= 0).map(p => p.cluster)).size;
+
+      document.getElementById("pointCountLabel").textContent = `${total} points`;
+      document.getElementById("stepCounterLabel").textContent = `Step ${state.stepCount}`;
+      document.getElementById("stateBadge").textContent = `STATE: ${state.dbscanState}`;
+      document.getElementById("mathEps").textContent = state.eps.toFixed(2);
+      document.getElementById("mathMinPts").textContent = state.minPts;
+
+      document.getElementById("statClusters").textContent = clusters;
+      document.getElementById("statClustered").textContent = `${core} / ${border}`;
+      document.getElementById("statNoise").textContent = noise;
+      document.getElementById("statUnvisited").textContent = unvisited;
+
+      // Update Stacked Distribution Bar
+      if (total > 0) {
+        const pCore = (core / total) * 100;
+        const pBorder = (border / total) * 100;
+        const pNoise = (noise / total) * 100;
+        const pUnv = (unvisited / total) * 100;
+        document.getElementById("segCore").style.width = pCore + "%";
+        document.getElementById("segBorder").style.width = pBorder + "%";
+        document.getElementById("segNoise").style.width = pNoise + "%";
+        document.getElementById("segUnvisited").style.width = pUnv + "%";
+        document.getElementById("distSummaryText").textContent = `${Math.round(100 - pUnv)}% Processed`;
+      } else {
+        document.getElementById("segCore").style.width = "0%";
+        document.getElementById("segBorder").style.width = "0%";
+        document.getElementById("segNoise").style.width = "0%";
+        document.getElementById("segUnvisited").style.width = "100%";
+        document.getElementById("distSummaryText").textContent = "0% Processed";
+      }
+
+      // Render Queue Chips
+      const queuePills = document.getElementById("queuePills");
+      document.getElementById("queueCountLabel").textContent = `${state.seedQueue.length} queued`;
+      if (state.seedQueue.length === 0) {
+        queuePills.innerHTML = `<span style="color:var(--text-dim);">No active cluster expansion.</span>`;
+      } else {
+        const chips = state.seedQueue.slice(0, 16).map((p, idx) =>
+          `<span class="q-chip ${idx === 0 ? 'next' : ''}">(${p.x.toFixed(1)}, ${p.y.toFixed(1)})</span>`
+        ).join("");
+        const extra = state.seedQueue.length > 16 ? `<span class="q-chip">+${state.seedQueue.length - 16} more</span>` : "";
+        queuePills.innerHTML = chips + extra;
+      }
+    }
+
+    function drawAll() {
+      drawDataCanvas();
+      drawLossGraph();
+      updateReadouts();
+    }
+
+    // ==========================================
+    // 4. INTERACTIVE CANVAS & HUD CONTROLS
+    // ==========================================
+    let isPointerDown = false;
+    let isPanning = false;
+    let panAnchorData = null, panSpanX = 0, panSpanY = 0;
+    let sprayTimer = null;
+    let currentSprayBatch = [];
+    let sprayUndoStack = [];
+
+    const btnUndoSpray = document.getElementById("btnUndoSpray");
+    function updateUndoButton() {
+      btnUndoSpray.disabled = sprayUndoStack.length === 0;
+      btnUndoSpray.textContent = sprayUndoStack.length ? `Undo (${sprayUndoStack.length})` : "Undo";
+    }
+
+    function addSinglePoint(dataX, dataY) {
+      if (state.points.length >= MAX_POINTS) return;
+      const pt = {
+        x: clamp(dataX, state.xMin, state.xMax),
+        y: clamp(dataY, state.yMin, state.yMax),
+        cluster: null,
+        type: "unvisited"
+      };
+      state.points.push(pt);
+      currentSprayBatch.push(pt);
+      syncIdleChart();
+    }
+
+    function sprayAt(dataX, dataY) {
+      const cfg = state.spray;
+      const radiusData = cfg.radiusPx / pxPerDataUnitX();
+      for (let i = 0; i < cfg.rate; i++) {
+        if (state.points.length >= MAX_POINTS) break;
+        const g = gaussianPair();
+        const std = radiusData * (0.15 + cfg.spread * 0.85);
+        const pt = {
+          x: clamp(dataX + g[0] * std, state.xMin, state.xMax),
+          y: clamp(dataY + g[1] * std, state.yMin, state.yMax),
+          cluster: null,
+          type: "unvisited"
+        };
+        state.points.push(pt);
+        currentSprayBatch.push(pt);
+      }
+      syncIdleChart();
+    }
+
+    function eraseAt(dataX, dataY) {
+      const radiusData = state.spray.radiusPx / pxPerDataUnitX();
+      state.points = state.points.filter(p => Math.hypot(p.x - dataX, p.y - dataY) > radiusData);
+      syncIdleChart();
+    }
+
+    function syncIdleChart() {
+      if (state.stepCount === 0 && state.dbscanState === "IDLE") {
+        state.lossHistory = [state.points.length];
+      }
+      drawAll();
+    }
+
+    function getLocalPos(canvas, e) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function updateToolCursor() {
+      if (state.tool === "pan") dataCanvas.style.cursor = "grab";
+      else if (state.tool === "erase") dataCanvas.style.cursor = "not-allowed";
+      else dataCanvas.style.cursor = "crosshair";
+    }
+
+    dataCanvas.addEventListener("pointerdown", e => {
+      dataCanvas.setPointerCapture(e.pointerId);
+      isPointerDown = true;
+      const pos = getLocalPos(dataCanvas, e);
+      brushCursor.px = pos.x;
+      brushCursor.py = pos.y;
+      brushCursor.visible = true;
+
+      if (state.tool === "pan" || e.shiftKey) {
+        isPanning = true;
+        panAnchorData = pxToData(pos.x, pos.y);
+        panSpanX = state.xMax - state.xMin;
+        panSpanY = state.yMax - state.yMin;
+        dataCanvas.style.cursor = "grabbing";
+      } else if (state.tool === "point") {
+        currentSprayBatch = [];
+        const d = pxToData(pos.x, pos.y);
+        addSinglePoint(d.x, d.y);
+      } else if (state.tool === "spray") {
+        currentSprayBatch = [];
+        const d = pxToData(pos.x, pos.y);
+        sprayAt(d.x, d.y);
+        sprayTimer = setInterval(() => {
+          const dd = pxToData(brushCursor.px, brushCursor.py);
+          sprayAt(dd.x, dd.y);
+        }, 65);
+      } else if (state.tool === "erase") {
+        const d = pxToData(pos.x, pos.y);
+        eraseAt(d.x, d.y);
+      }
+      drawDataCanvas();
+    });
+
+    dataCanvas.addEventListener("pointermove", e => {
+      const pos = getLocalPos(dataCanvas, e);
+      brushCursor.px = pos.x;
+      brushCursor.py = pos.y;
+      brushCursor.visible = state.tool !== "pan";
+
+      const d = pxToData(pos.x, pos.y);
+      document.getElementById("cursorCoord").textContent = `x: ${d.x.toFixed(2)}, y: ${d.y.toFixed(2)}`;
+
+      if (isPanning && panAnchorData) {
+        const a = plotArea();
+        const fracX = (pos.x - a.x0) / a.w;
+        const fracY = (pos.y - a.y0) / a.h;
+        state.xMin = panAnchorData.x - fracX * panSpanX;
+        state.xMax = state.xMin + panSpanX;
+        state.yMin = panAnchorData.y - (1 - fracY) * panSpanY;
+        state.yMax = state.yMin + panSpanY;
+      } else if (isPointerDown && state.tool === "erase") {
+        eraseAt(d.x, d.y);
+      }
+      drawDataCanvas();
+    });
+
+    function stopCanvasPointer(e) {
+      if (e && e.pointerId !== undefined) {
+        try { dataCanvas.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+      if (currentSprayBatch.length > 0) {
+        sprayUndoStack.push(currentSprayBatch);
+        if (sprayUndoStack.length > 10) sprayUndoStack.shift();
+        updateUndoButton();
+      }
+      currentSprayBatch = [];
+      isPointerDown = false;
+      isPanning = false;
+      panAnchorData = null;
+      if (sprayTimer) { clearInterval(sprayTimer); sprayTimer = null; }
+      updateToolCursor();
+      drawDataCanvas();
+    }
+
+    dataCanvas.addEventListener("pointerup", stopCanvasPointer);
+    dataCanvas.addEventListener("pointercancel", stopCanvasPointer);
+    dataCanvas.addEventListener("pointerleave", () => {
+      brushCursor.visible = false;
+      stopCanvasPointer(null);
+    });
+
+    function zoomByFactor(factor, centerX, centerY) {
+      const spanX = clamp((state.xMax - state.xMin) * factor, 1.5, 40);
+      const spanY = clamp((state.yMax - state.yMin) * factor, 1.5, 40);
+      const fracX = (centerX - state.xMin) / (state.xMax - state.xMin);
+      const fracY = (centerY - state.yMin) / (state.yMax - state.yMin);
+      state.xMin = centerX - fracX * spanX;
+      state.xMax = state.xMin + spanX;
+      state.yMin = centerY - fracY * spanY;
+      state.yMax = state.yMin + spanY;
+      updateEpsLabel();
+      drawDataCanvas();
+    }
+
+    dataCanvas.addEventListener("wheel", e => {
+      e.preventDefault();
+      const pos = getLocalPos(dataCanvas, e);
+      const d = pxToData(pos.x, pos.y);
+      zoomByFactor(e.deltaY > 0 ? 1.12 : 1 / 1.12, d.x, d.y);
+    }, { passive: false });
+
+    document.getElementById("btnZoomIn").addEventListener("click", () => {
+      zoomByFactor(0.8, (state.xMin + state.xMax) / 2, (state.yMin + state.yMax) / 2);
+    });
+    document.getElementById("btnZoomOut").addEventListener("click", () => {
+      zoomByFactor(1.25, (state.xMin + state.xMax) / 2, (state.yMin + state.yMax) / 2);
+    });
+    document.getElementById("btnResetView").addEventListener("click", () => {
+      state.xMin = 0; state.xMax = 10; state.yMin = 0; state.yMax = 10;
+      updateEpsLabel();
+      drawDataCanvas();
+    });
+
+    // ==========================================
+    // 5. PRESET GEOMETRY GENERATORS
+    // ==========================================
+    function generateDataset(pattern) {
+      state.points = [];
+      sprayUndoStack = [];
+      updateUndoButton();
+      state.xMin = 0; state.xMax = 10; state.yMin = 0; state.yMax = 10;
+
+      const addPt = (x, y) => {
+        if (x >= 0.2 && x <= 9.8 && y >= 0.2 && y <= 9.8) {
+          state.points.push({ x, y, cluster: null, type: "unvisited" });
+        }
+      };
+
+      if (pattern === "blobs") {
+        [[2.6, 7.2], [7.3, 6.8], [5.0, 2.7]].forEach(([cx, cy]) => {
+          for (let i = 0; i < 42; i++) {
+            const g = gaussianPair();
+            addPt(cx + g[0] * 0.48, cy + g[1] * 0.48);
+          }
+        });
+        for (let i = 0; i < 18; i++) addPt(randRange(0.4, 9.6), randRange(0.4, 9.6));
+      } else if (pattern === "rings") {
+        for (let i = 0; i < 35; i++) {
+          const g = gaussianPair();
+          addPt(5 + g[0] * 0.35, 5 + g[1] * 0.35);
+        }
+        for (let i = 0; i < 110; i++) {
+          const angle = (i / 110) * Math.PI * 2 + randRange(-0.03, 0.03);
+          const r = 3.1 + randRange(-0.22, 0.22);
+          addPt(5 + Math.cos(angle) * r, 5 + Math.sin(angle) * r);
+        }
+        for (let i = 0; i < 12; i++) addPt(randRange(0.4, 9.6), randRange(0.4, 9.6));
+      } else if (pattern === "moons") {
+        for (let i = 0; i < 70; i++) {
+          const a = (i / 70) * Math.PI;
+          addPt(2.2 + Math.cos(a) * 2.2 + randRange(-0.2, 0.2), 5.2 + Math.sin(a) * 2.0 + randRange(-0.2, 0.2));
+        }
+        for (let i = 0; i < 70; i++) {
+          const a = (i / 70) * Math.PI;
+          addPt(5.5 + Math.cos(a) * 2.2 + randRange(-0.2, 0.2), 4.6 - Math.sin(a) * 2.0 + randRange(-0.2, 0.2));
+        }
+        for (let i = 0; i < 12; i++) addPt(randRange(0.4, 9.6), randRange(0.4, 9.6));
+      } else if (pattern === "river") {
+        for (let i = 0; i < 125; i++) {
+          const x = 1.0 + (i / 125) * 8.0;
+          const y = 5.0 + Math.sin(x * 1.1) * 2.6 + randRange(-0.28, 0.28);
+          addPt(x + randRange(-0.15, 0.15), y);
+        }
+        for (let i = 0; i < 16; i++) addPt(randRange(0.4, 9.6), randRange(0.4, 9.6));
+      } else if (pattern === "varying") {
+        for (let i = 0; i < 55; i++) {
+          const g = gaussianPair();
+          addPt(2.6 + g[0] * 0.25, 5.2 + g[1] * 0.25);
+        }
+        for (let i = 0; i < 50; i++) {
+          const g = gaussianPair();
+          addPt(7.0 + g[0] * 1.15, 5.0 + g[1] * 1.15);
+        }
+      } else if (pattern === "bridge") {
+        [[2.6, 5.0], [7.4, 5.0]].forEach(([cx, cy]) => {
+          for (let i = 0; i < 48; i++) {
+            const g = gaussianPair();
+            addPt(cx + g[0] * 0.45, cy + g[1] * 0.45);
+          }
+        });
+        for (let i = 0; i < 9; i++) {
+          addPt(3.4 + i * 0.4, 5.0 + randRange(-0.08, 0.08));
+        }
+      }
+
+      resetModel();
+    }
+
+    // ==========================================
+    // 6. UI LISTENERS & ANIMATION LOOP
+    // ==========================================
+    function updateEpsLabel() {
+      const px = Math.round(state.eps * pxPerDataUnitX());
+      document.getElementById("valEps").textContent = `${state.eps.toFixed(2)} (${px}px)`;
+    }
+
+    document.getElementById("toolGroup").querySelectorAll(".seg-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.getElementById("toolGroup").querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.tool = btn.dataset.tool;
+        updateToolCursor();
+      });
+    });
+
+    document.getElementById("metricGroup").querySelectorAll(".seg-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.getElementById("metricGroup").querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.metric = btn.dataset.metric;
+        resetModel();
+      });
+    });
+
+    document.getElementById("nozzleSize").addEventListener("input", e => {
+      state.spray.radiusPx = Number(e.target.value);
+      document.getElementById("nozzleRadiusVal").textContent = state.spray.radiusPx + "px";
+    });
+    document.getElementById("spraySpread").addEventListener("input", e => {
+      state.spray.spread = Number(e.target.value) / 100;
+      document.getElementById("spraySpreadVal").textContent = state.spray.spread.toFixed(2);
+    });
+    document.getElementById("sprayRate").addEventListener("input", e => {
+      state.spray.rate = Number(e.target.value);
+      document.getElementById("sprayRateVal").textContent = state.spray.rate + " pt/tick";
+    });
+
+    document.getElementById("paramEps").addEventListener("input", e => {
+      state.eps = Number(e.target.value) / 100;
+      updateEpsLabel();
+      resetModel();
+    });
+    document.getElementById("paramMinPts").addEventListener("input", e => {
+      state.minPts = Number(e.target.value);
+      document.getElementById("valMinPts").textContent = state.minPts + " pts";
+      resetModel();
+    });
+    document.getElementById("paramSpeed").addEventListener("input", e => {
+      state.speed = Number(e.target.value);
+      document.getElementById("valSpeed").textContent = state.speed + " step/s";
+    });
+
+    const chkStopUnvisited = document.getElementById("chkStopUnvisited");
+    const stopUnvisitedInput = document.getElementById("stopUnvisitedInput");
+    const chkStopStep = document.getElementById("chkStopStep");
+    const stopStepInput = document.getElementById("stopStepInput");
+
+    chkStopUnvisited.addEventListener("change", () => {
+      state.stopOnUnvisited = chkStopUnvisited.checked;
+      stopUnvisitedInput.disabled = !chkStopUnvisited.checked;
+    });
+    stopUnvisitedInput.addEventListener("input", () => {
+      const v = parseInt(stopUnvisitedInput.value, 10);
+      state.stopUnvisitedTarget = isNaN(v) ? null : v;
+    });
+    chkStopStep.addEventListener("change", () => {
+      state.stopOnStep = chkStopStep.checked;
+      stopStepInput.disabled = !chkStopStep.checked;
+    });
+    stopStepInput.addEventListener("input", () => {
+      const v = parseInt(stopStepInput.value, 10);
+      state.stopStepTarget = isNaN(v) ? null : v;
+    });
+
+    function checkStopConditions() {
+      const unvisited = state.points.filter(p => p.type === "unvisited").length;
+      if (state.stopOnUnvisited && state.stopUnvisitedTarget !== null && unvisited <= state.stopUnvisitedTarget) {
+        return `Auto-paused: unvisited points (${unvisited}) reached target ≤ ${state.stopUnvisitedTarget}`;
+      }
+      if (state.stopOnStep && state.stopStepTarget !== null && state.stepCount >= state.stopStepTarget) {
+        return `Auto-paused: reached target step #${state.stopStepTarget}`;
+      }
+      return null;
+    }
+
+    document.getElementById("btn-random").addEventListener("click", () => {
+      generateDataset(document.getElementById("patternSelect").value);
+    });
+    document.getElementById("patternSelect").addEventListener("change", e => {
+      generateDataset(e.target.value);
+    });
+
+    btnUndoSpray.addEventListener("click", () => {
+      if (sprayUndoStack.length === 0) return;
+      const batch = sprayUndoStack.pop();
+      const toRemove = new Set(batch);
+      state.points = state.points.filter(p => !toRemove.has(p));
+      updateUndoButton();
+      resetModel();
+    });
+
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      state.points = [];
+      sprayUndoStack = [];
+      updateUndoButton();
+      resetModel();
+    });
+
+    const btnPlay = document.getElementById("btn-play");
+    function setRunning(on) {
+      state.running = on && state.points.length > 0;
+      btnPlay.textContent = state.running ? "⏸ Pause Execution" : "▶ Play to Convergence";
+      btnPlay.classList.toggle("paused", state.running);
+    }
+
+    document.getElementById("btn-step").addEventListener("click", () => {
+      setRunning(false);
+      if (state.dbscanState === "CONVERGED") resetModel();
+      stepDBSCAN();
+    });
+
+    btnPlay.addEventListener("click", () => {
+      document.getElementById("stopStatus").textContent = "";
+      if (state.dbscanState === "CONVERGED") resetModel();
+      setRunning(!state.running);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", resetModel);
+
+    document.querySelectorAll(".collapse-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const card = document.getElementById(btn.dataset.target);
+        if (!card) return;
+        card.classList.toggle("minimized");
+        const isMin = card.classList.contains("minimized");
+        btn.textContent = isMin ? "+" : "−";
+        if (!isMin) requestAnimationFrame(resizeAll);
+      });
+    });
+
+    let lastTime = null, acc = 0;
+    function loop(t) {
+      if (state.running) {
+        if (lastTime === null) lastTime = t;
+        const dt = (t - lastTime) / 1000;
+        lastTime = t;
+        acc += dt * state.speed;
+        let steps = Math.floor(acc);
+        if (steps > 0) {
+          acc -= steps;
+          steps = Math.min(steps, 60);
+          for (let i = 0; i < steps; i++) {
+            stepDBSCAN();
+            if (!state.running) break;
+            const reason = checkStopConditions();
+            if (reason) {
+              setRunning(false);
+              document.getElementById("stopStatus").textContent = reason;
+              break;
+            }
+          }
+        }
+      } else {
+        lastTime = null;
+      }
+      requestAnimationFrame(loop);
+    }
+
+    resizeAll();
+    updateToolCursor();
+    generateDataset("blobs");
+    requestAnimationFrame(loop);
+  })();
   </script>
 </body>
 </html>
